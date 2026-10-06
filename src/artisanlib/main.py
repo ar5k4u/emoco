@@ -700,7 +700,7 @@ from artisanlib.wsport import wsport
 from artisanlib.modbusport import modbusport
 from artisanlib.event_button_style import artisan_event_button_style
 from artisanlib import emoco_theme
-from artisanlib.emoco_widgets import PhaseBar
+from artisanlib.emoco_widgets import PhaseBar, TimerCard
 from artisanlib.simulator import Simulator
 from artisanlib.dialogs import HelpDlg, ArtisanInputDialog, ArtisanComboBoxDialog, ArtisanPortsDialog, ArtisanSliderLCDinputDlg
 from artisanlib.large_lcds import (LargeMainLCDs, LargeDeltaLCDs, LargePIDLCDs, LargeExtraLCDs, LargePhasesLCDs, LargeScaleLCDs)
@@ -1489,7 +1489,7 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
         'saveStatisticsMenu', 'printAction', 'quitAction', 'cutAction', 'copyAction', 'pasteAction', 'editGraphAction', 'backgroundAction',
         'flavorAction', 'switchAction', 'switchETBTAction', 'machineMenu', 'deviceAction', 'commportAction', 'calibrateDelayAction', 'curvesAction',
         'eventsAction', 'alarmAction', 'phasesGraphAction', 'StatisticsAction', 'WindowconfigAction', 'colorsAction', 'themeMenu', 'autosaveAction',
-        'emocoThemeMenu', 'emocoThemeActions', 'event_button_style_args', 'eventButtonBaseText', 'phaseBar', 'sliderStepButtons',
+        'emocoThemeMenu', 'emocoThemeActions', 'event_button_style_args', 'eventButtonBaseText', 'phaseBar', 'sliderStepButtons', 'timerCard',
         'batchAction', 'temperatureConfMenu', 'FahrenheitAction', 'CelsiusAction', 'languageMenu', 'analyzeMenu', 'fitIdealautoAction',
         'analyzeMenu', 'fitIdealx2Action', 'fitIdealx3Action', 'fitIdealx0Action', 'fitBkgndAction', 'clearresultsAction', 'roastCompareAction',
         'designerAction', 'simulatorAction', 'wheeleditorAction', 'transformAction', 'temperatureMenu', 'ConvertToFahrenheitAction',
@@ -3748,8 +3748,11 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
         LCDgrid.setContentsMargins(0,0,5,0)
         LCDgrid.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
         LCDlayout = QVBoxLayout()
-        LCDlayout.setSpacing(0)
-        LCDlayout.setContentsMargins(0,0,0,0)
+        LCDlayout.setSpacing(6)
+        LCDlayout.setContentsMargins(0,0,5,0)
+        # the timer sits in a card on top of the readings
+        self.timerCard:TimerCard = TimerCard(self.lcd1)
+        LCDlayout.addWidget(self.timerCard)
         LCDlayout.addLayout(LCDgrid)
         LCDlayout.addStretch()
 
@@ -3895,7 +3898,6 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
         self.level1layout.addSpacing(15)
         self.level1layout.addWidget(self.buttonCONTROL)
         self.level1layout.addSpacing(10)
-        self.level1layout.addWidget(self.lcd1)
         self.level1layout.setSpacing(0)
         self.level1layout.setContentsMargins(0,7,7,12) # left, top, right, bottom
 
@@ -11537,6 +11539,7 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
     # shows the recorded time (from CHARGE) and BT of the main events as a second line on the event buttons
     def updateEventButtonLabels(self) -> None:
         self.phaseBar.refresh(self.qmc)
+        self.timerCard.refresh(self.qmc, self.phaseBar)
         try:
             buttons = [self.buttonCHARGE, self.buttonDRY, self.buttonFCs, self.buttonFCe,
                        self.buttonSCs, self.buttonSCe, self.buttonDROP, self.buttonCOOL]
@@ -11788,6 +11791,7 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
 
     def hideLCDs(self, changeDefault:bool = True) -> None:
         self.lcd1.setVisible(False)
+        self.timerCard.setVisible(False)
         self.lcdFrame.setVisible(False)
         self.readingsAction.setChecked(False)
         if changeDefault:
@@ -11800,6 +11804,7 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
 
     def showLCDs(self, changeDefault:bool = True) -> None:
         self.lcd1.setVisible(True)
+        self.timerCard.setVisible(True)
         self.lcdFrame.setVisible(True)
         self.readingsAction.setChecked(True)
         if changeDefault:

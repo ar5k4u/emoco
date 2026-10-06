@@ -12189,6 +12189,18 @@ When Keyboard Shortcuts are OFF adds a custom event</source>
 </context><context>
     <name>Label</name>
     <message>
+        <source>Recording</source>
+        <translation>기록 중</translation>
+    </message>
+    <message>
+        <source>Monitoring</source>
+        <translation>모니터링 중</translation>
+    </message>
+    <message>
+        <source>Sampling</source>
+        <translation>샘플링</translation>
+    </message>
+    <message>
         <source>Development</source>
         <translation>디벨롭</translation>
     </message>

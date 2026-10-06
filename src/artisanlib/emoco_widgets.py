@@ -17,7 +17,7 @@ from typing import Final, TYPE_CHECKING
 
 from PyQt6.QtCore import Qt, QRectF
 from PyQt6.QtGui import QPainter, QColor, QPen, QPaintEvent, QFont, QFontMetrics
-from PyQt6.QtWidgets import QFrame, QApplication
+from PyQt6.QtWidgets import QFrame, QApplication, QLabel, QVBoxLayout, QHBoxLayout, QWidget
 
 from artisanlib import emoco_theme
 from artisanlib.util import stringfromseconds
@@ -227,3 +227,76 @@ class PhaseBar(QFrame): # pyrefly:ignore[invalid-inheritance] # pyright: ignore 
                 x += sw + self.GAP
         finally:
             p.end()
+
+
+class TimerCard(QFrame): # pyrefly:ignore[invalid-inheritance] # pyright: ignore [reportGeneralTypeIssues]
+    """A card holding the roast timer LCD with the recording state above and the current phase below."""
+
+    def __init__(self, lcd:QWidget, parent=None) -> None: # type: ignore[no-untyped-def]
+        super().__init__(parent) # pyrefly: ignore
+        self.setObjectName('timerCard')
+        self.state_label = QLabel()
+        self.state_label.setObjectName('timerState')
+        self.sampling_label = QLabel()
+        self.sampling_label.setObjectName('timerSampling')
+        self.sampling_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.phase_label = QLabel()
+        self.phase_label.setObjectName('timerPhase')
+        top = QHBoxLayout()
+        top.setContentsMargins(0, 0, 0, 0)
+        top.setSpacing(6)
+        top.addWidget(self.state_label)
+        top.addStretch()
+        top.addWidget(self.sampling_label)
+        layout = QVBoxLayout()
+        layout.setContentsMargins(10, 6, 10, 8)
+        layout.setSpacing(2)
+        layout.addLayout(top)
+        layout.addWidget(lcd)
+        layout.addWidget(self.phase_label)
+        self.setLayout(layout)
+        self._last:tuple[str, str, str]|None = None
+        self.refreshStyle()
+
+    def refreshStyle(self) -> None:
+        t = emoco_theme.tokens()
+        self.setStyleSheet(
+            f"QFrame#timerCard {{ background-color: {t['surface']}; border: 1px solid {t['border']}; border-radius: 10px; }}"
+            f" QLabel#timerState {{ color: {t['muted']}; font-weight: bold; }}"
+            f" QLabel#timerState[recording=\"true\"] {{ color: {t['danger_text']}; }}"
+            f" QLabel#timerSampling, QLabel#timerPhase {{ color: {t['muted']}; }}")
+        self.update()
+
+    # updates the state line (recording / monitoring / off), the sampling interval and the current phase
+    def refresh(self, qmc:'tgraphcanvas', phases:'PhaseBar') -> None:
+        try:
+            if qmc.flagstart:
+                state = '\u25cf ' + QApplication.translate('Label', 'Recording')
+                recording = 'true'
+            elif qmc.flagon:
+                state = '\u25cf ' + QApplication.translate('Label', 'Monitoring')
+                recording = 'false'
+            else:
+                state = QApplication.translate('Label', 'Off')
+                recording = 'false'
+            sampling = QApplication.translate('Label', 'Sampling') + f' {qmc.delay/1000:g}s'
+            phase = ''
+            if phases.isVisible():
+                active = next((seg for seg in phases.segments if seg.active), None)
+                if active is not None:
+                    phase = f'{active.name} \u00b7 {stringfromseconds(active.seconds, False)}'
+                elif phases.segments and phases.segments[-1].known:
+                    phase = QApplication.translate('Label', 'Total') + f' \u00b7 {stringfromseconds(sum(seg.seconds for seg in phases.segments if seg.known), False)}'
+            current = (state, sampling, phase)
+            if current == self._last:
+                return
+            self._last = current
+            self.state_label.setText(state)
+            if self.state_label.property('recording') != recording:
+                self.state_label.setProperty('recording', recording)
+                self.state_label.setStyleSheet(self.state_label.styleSheet()) # re-polish for the property selector
+            self.sampling_label.setText(sampling)
+            self.phase_label.setText(phase)
+            self.phase_label.setVisible(phase != '')
+        except Exception as e: # pylint: disable=broad-except
+            _log.exception(e)
