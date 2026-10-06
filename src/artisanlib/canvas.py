@@ -606,7 +606,7 @@ class tgraphcanvas(QObject):
         self.errorlog:list[str] = []
 
         # default delay between readings in milliseconds
-        self.default_delay: Final[int] = 2000 # default 2s
+        self.default_delay: Final[int] = 1000 # default 1s (Artisan: 2s)
         self.delay:int = self.default_delay
         self.min_delay: Final[int] = 100 #250 # 1000 # Note that already a 0.25s min delay puts a lot of performance pressure on the app
 
