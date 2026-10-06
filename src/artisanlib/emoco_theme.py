@@ -19,7 +19,6 @@ from PyQt6.QtCore import Qt, QSettings
 from PyQt6.QtGui import QAction, QActionGroup, QColor, QPalette
 from PyQt6.QtWidgets import QMenu
 
-from artisanlib.slider_style import artisan_slider_style
 
 if TYPE_CHECKING:
     from artisanlib.main import ApplicationWindow # pylint: disable=unused-import
@@ -283,28 +282,56 @@ def event_button_style(name:str|None = None) -> str:
             }}}}
 """
 
-# returns the slider style of the active theme with the format placeholder color
+# returns the (horizontal) slider style of the active theme with the format placeholder color (the event color)
 def slider_style() -> str:
     t = tokens()
-    style = artisan_slider_style
-    for old, new in (
-            ('qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #fff, stop:1 #eee)', t['text']),
-            ('qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #ddd, stop:1 #888)', t['accent']),
-            ('qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #ddd, stop:1 #777)', t['accent_hover']),
-            ('qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #eee, stop:1 #ddd)', t['accent_hover']),
-            ('background: #888;', f"background: {t['input_border']};"),
-            ('background: 888;', f"background: {t['input_border']};"),
-            ('background: #ddd;', f"background: {t['border']};"),
-            ('background: #bbb;', f"background: {t['border']};"),
-            ('background: #eee;', f"background: {t['surface2']};"),
-            ('solid #666', f"solid {t['input_border']}"),
-            ('solid #aaa', f"solid {t['border']}"),
-            ('solid #ddd', f"solid {t['input_border']}"),
-            ('solid #ccc', f"solid {t['input_border']}"),
-            ('solid #555', f"solid {t['accent']}"),
-            ('border-color: #999;', f"border-color: {t['border']};")):
-        style = style.replace(old, new)
-    return style
+    return f"""
+            QSlider::groove:horizontal {{{{
+                background: {t['border']};
+                border: 0px;
+                height: 6px;
+                border-radius: 3px;
+            }}}}
+            QSlider::sub-page:horizontal {{{{
+                background: {{color}};
+                border: 0px;
+                height: 6px;
+                border-radius: 3px;
+            }}}}
+            QSlider::add-page:horizontal {{{{
+                background: {t['border']};
+                border: 0px;
+                height: 6px;
+                border-radius: 3px;
+            }}}}
+            QSlider::handle:horizontal {{{{
+                background: {{color}};
+                border: 2px solid {t['surface']};
+                width: 16px;
+                height: 16px;
+                margin: -6px 0px;
+                border-radius: 9px;
+            }}}}
+            QSlider::handle:horizontal:hover {{{{
+                border: 2px solid {t['text']};
+            }}}}
+            QSlider::handle:horizontal:focus {{{{
+                border: 2px solid {t['accent']};
+            }}}}
+            QSlider::sub-page:horizontal:disabled, QSlider::handle:horizontal:disabled {{{{
+                background: {t['input_border']};
+            }}}}
+    """
+
+# returns the style of the - / + buttons next to the event sliders
+def slider_step_button_style() -> str:
+    t = tokens()
+    return f"""
+            QPushButton#sliderStep {{ border: 1px solid {t['input_border']}; border-radius: 6px; background: {t['surface']}; color: {t['text']}; font-weight: bold; font-size: 14px; padding: 0px; }}
+            QPushButton#sliderStep:hover {{ background: {t['surface2']}; }}
+            QPushButton#sliderStep:pressed {{ background: {t['border']}; }}
+            QPushButton#sliderStep:disabled {{ color: {t['disabled']}; border-color: {t['border']}; }}
+    """
 
 # returns the style of the reading cards (frames holding a label and an LCD)
 def lcd_card_style() -> str:
@@ -480,6 +507,8 @@ def _apply_button_styles(aw:'ApplicationWindow') -> None:
     for b in (aw.buttonSVm5, aw.buttonSVm10, aw.buttonSVm20):
         b.setStyleSheet(aw.pushbuttonstyles['SV -'])
     aw.lowerbuttondialog.setStyleSheet(event_button_style().format(**aw.event_button_style_args))
+    for b in aw.sliderStepButtons:
+        b.setStyleSheet(slider_step_button_style())
     for b in aw.lowerbuttondialog.findChildren(EventPushButton):
         if isinstance(b, AnimatedMajorEventPushButton):
             b.setAnimationColors(QColor(t['accent']), QColor(t['accent_hover']), QColor(t['accent_pressed']), QColor(t['accent']), t['accent_text'])
