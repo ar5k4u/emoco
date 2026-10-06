@@ -117,7 +117,7 @@ from PyQt6.QtWidgets import (QApplication, QWidget, QMessageBox, QLabel, QMainWi
                          QSlider,
                          QColorDialog, QFrame, QScrollArea, QProgressDialog,
                          QStyleFactory, QMenuBar, QMenu, QLayout, QGridLayout, QDockWidget)
-from PyQt6.QtGui import (QScreen, QPageLayout, QAction, QImageReader, QWindow,
+from PyQt6.QtGui import (QScreen, QPageLayout, QAction, QImageReader, QWindow, QFontMetrics,
                             QKeySequence, QShortcut,
                             QPixmap,QColor,QDesktopServices,QIcon,
                             QRegularExpressionValidator, QDoubleValidator, QPainter, QCursor)
@@ -11553,7 +11553,11 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
     # header line next to the toolbar: roast title, batch number and charge weight
     def updateHeaderInfo(self) -> None:
         try:
-            title = self.qmc.title if self.qmc.title != QApplication.translate('Scope Title', 'Roaster Scope') else ''
+            # the default title (in any language) is not shown; long titles are elided to keep the toolbar in place
+            default_titles = {'Roaster Scope', QApplication.translate('Scope Title', 'Roaster Scope')}
+            title = self.qmc.title.strip() if self.qmc.title.strip() not in default_titles else ''
+            if title:
+                title = QFontMetrics(self.headerInfoLabel.font()).elidedText(title, Qt.TextElideMode.ElideRight, 320)
             parts:list[str] = []
             if self.qmc.roastbatchnr != 0:
                 parts.append(QApplication.translate('Label', 'Batch') + f' {self.qmc.roastbatchprefix}{self.qmc.roastbatchnr}')
