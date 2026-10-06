@@ -701,7 +701,7 @@ from artisanlib.wsport import wsport
 from artisanlib.modbusport import modbusport
 from artisanlib.event_button_style import artisan_event_button_style
 from artisanlib import emoco_theme
-from artisanlib.emoco_widgets import PhaseBar, TimerCard, InfoCard
+from artisanlib.emoco_widgets import PhaseBar, TimerCard, InfoCard, ColumnScrollArea
 from artisanlib.simulator import Simulator
 from artisanlib.dialogs import HelpDlg, ArtisanInputDialog, ArtisanComboBoxDialog, ArtisanPortsDialog, ArtisanSliderLCDinputDlg
 from artisanlib.large_lcds import (LargeMainLCDs, LargeDeltaLCDs, LargePIDLCDs, LargeExtraLCDs, LargePhasesLCDs, LargeScaleLCDs)
@@ -4183,7 +4183,13 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.sliderDock) # the control panel sits right of the readings
 
         self.lcdFrame:QFrame = QFrame()
-        self.lcdFrame.setLayout(LCDlayout)
+        lcdColumn = QWidget()
+        lcdColumn.setLayout(LCDlayout)
+        lcdColumnLayout = QVBoxLayout()
+        lcdColumnLayout.setContentsMargins(0,0,0,0)
+        lcdColumnLayout.setSpacing(0)
+        lcdColumnLayout.addWidget(ColumnScrollArea(lcdColumn)) # scrolls vertically when the window is too low
+        self.lcdFrame.setLayout(lcdColumnLayout)
         self.lcdFrame.setVisible(False)
         self.lcdFrame.setContentsMargins(0,0,0,0)
         self.lcdFrame.setSizePolicy(QSizePolicy.Policy.Maximum,QSizePolicy.Policy.Expanding) # prevent horizontal expansion (graph might not maximize otherwise)

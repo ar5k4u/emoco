@@ -17,7 +17,8 @@ from typing import Final, TYPE_CHECKING
 
 from PyQt6.QtCore import Qt, QRectF
 from PyQt6.QtGui import QPainter, QColor, QPen, QPaintEvent, QFont, QFontMetrics
-from PyQt6.QtWidgets import QFrame, QApplication, QLabel, QVBoxLayout, QHBoxLayout, QWidget
+from PyQt6.QtWidgets import QFrame, QApplication, QLabel, QVBoxLayout, QHBoxLayout, QWidget, QScrollArea, QSizePolicy
+from PyQt6.QtCore import QSize
 
 from artisanlib import emoco_theme
 from artisanlib.util import stringfromseconds
@@ -70,13 +71,13 @@ class PhaseBar(QFrame): # pyrefly:ignore[invalid-inheritance] # pyright: ignore 
             timex = qmc.timex
             timeindex = qmc.timeindex
             if len(timex) < 2 or len(timeindex) < 7 or not (qmc.flagstart or timeindex[0] > -1 or timeindex[6] > 0):
-                if self.isVisible():
+                if not self.isHidden():
                     self.setVisible(False)
                 return
             n = len(timex)
             if qmc.flagstart and not -1 < timeindex[0] < n:
                 # recording but CHARGE not marked yet: the phases are relative to CHARGE, nothing to show
-                if self.isVisible():
+                if not self.isHidden():
                     self.setVisible(False)
                 return
             charge = timeindex[0] if -1 < timeindex[0] < n else 0
@@ -114,7 +115,7 @@ class PhaseBar(QFrame): # pyrefly:ignore[invalid-inheritance] # pyright: ignore 
             dev = segments[2].seconds if segments[2].known else 0
             self.dev_ratio = (dev / total * 100.0) if total > 0 and segments[2].known else None
             self.segments = segments
-            if not self.isVisible():
+            if self.isHidden():
                 self.setVisible(True)
             self.update()
         except Exception as e: # pylint: disable=broad-except
@@ -141,7 +142,8 @@ class PhaseBar(QFrame): # pyrefly:ignore[invalid-inheritance] # pyright: ignore 
         if self._dry_idx is not None and self._dry_idx <= end:
             return self._dry_idx
         stop = min(end, len(temp) - 1)
-        i = self._scan_pos
+        # the sampling filter may still adjust the last few BT values, so those are scanned again
+        i = max(self._tp_idx, self._scan_pos - 3)
         while i <= stop:
             v = temp[i]
             if v is not None and v != -1:
@@ -281,7 +283,7 @@ class TimerCard(QFrame): # pyrefly:ignore[invalid-inheritance] # pyright: ignore
                 state = '\u25cf ' + QApplication.translate('Label', 'Monitoring')
                 recording = 'false'
             else:
-                state = QApplication.translate('Label', 'Off')
+                state = QApplication.translate('Label', 'Standby')
                 recording = 'false'
             sampling = QApplication.translate('Label', 'Sampling') + f' {qmc.delay/1000:g}s'
             phase = ''
@@ -375,7 +377,36 @@ class InfoCard(QFrame): # pyrefly:ignore[invalid-inheritance] # pyright: ignore 
                 self.delta_label.setText(text)
                 self.delta_label.setVisible(text != '')
             visible = self.phases_lcds.isVisibleTo(self) or self.auc_lcd.isVisibleTo(self) or text != ''
-            if visible != self.isVisible():
+            if visible == self.isHidden(): # compare with the card's own state, not with the (maybe hidden) ancestors
                 self.setVisible(visible)
         except Exception as e: # pylint: disable=broad-except
             _log.exception(e)
+
+
+class ColumnScrollArea(QScrollArea): # pyrefly:ignore[invalid-inheritance] # pyright: ignore [reportGeneralTypeIssues]
+    """A vertical-only scroll area whose width follows its content (used for the readings column)."""
+
+    def __init__(self, content:QWidget, parent=None) -> None: # type: ignore[no-untyped-def]
+        super().__init__(parent) # pyrefly: ignore
+        self.setWidgetResizable(True)
+        self.setFrameShape(QFrame.Shape.NoFrame)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Expanding)
+        self.setStyleSheet('QScrollArea { background: transparent; } QScrollArea > QWidget > QWidget { background: transparent; }')
+        self.setWidget(content)
+
+    def _content_width(self) -> int:
+        w = self.widget()
+        width = w.sizeHint().width() if w is not None else 0
+        bar = self.verticalScrollBar()
+        if bar is not None and bar.isVisible():
+            width += bar.sizeHint().width()
+        return width + 4 # a little slack so the right card border is never clipped
+
+    def sizeHint(self) -> QSize: # pylint: disable=invalid-name
+        w = self.widget()
+        return QSize(self._content_width(), w.sizeHint().height() if w is not None else 0)
+
+    def minimumSizeHint(self) -> QSize: # pylint: disable=invalid-name
+        return QSize(self._content_width(), 0)

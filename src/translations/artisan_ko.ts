@@ -12189,6 +12189,10 @@ When Keyboard Shortcuts are OFF adds a custom event</source>
 </context><context>
     <name>Label</name>
     <message>
+        <source>Standby</source>
+        <translation>대기</translation>
+    </message>
+    <message>
         <source>Prediction</source>
         <translation>예측</translation>
     </message>
