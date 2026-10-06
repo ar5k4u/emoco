@@ -395,6 +395,13 @@ class ColumnScrollArea(QScrollArea): # pyrefly:ignore[invalid-inheritance] # pyr
         self.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Expanding)
         self.setStyleSheet('QScrollArea { background: transparent; } QScrollArea > QWidget > QWidget { background: transparent; }')
         self.setWidget(content)
+        # the width depends on whether the scrollbar is shown: tell the parent layout whenever that may change
+        bar = self.verticalScrollBar()
+        if bar is not None:
+            bar.rangeChanged.connect(self._bar_changed)
+
+    def _bar_changed(self, _minimum:int = 0, _maximum:int = 0) -> None:
+        self.updateGeometry()
 
     def _content_width(self) -> int:
         w = self.widget()
