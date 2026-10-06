@@ -8647,7 +8647,9 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
             if 0 <= n < len(sliders):
                 slider = sliders[n]
                 step = self.eventSliderStepSize(n) if n < 4 else slider.singleStep()
-                v = max(slider.minimum(), min(slider.maximum(), slider.value() + direction * step))
+                # start from the value quantized to the step grid so a coarse step always moves by exactly one step
+                base = self.applySliderStepSize(n, slider.value()) if n < 4 else slider.value()
+                v = max(slider.minimum(), min(slider.maximum(), base + direction * step))
                 if v != slider.value():
                     slider.setValue(v)
                     if n < 4:
