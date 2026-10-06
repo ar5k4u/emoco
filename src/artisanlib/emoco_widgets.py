@@ -50,7 +50,7 @@ class PhaseBar(QFrame): # pyrefly:ignore[invalid-inheritance] # pyright: ignore 
         self.segments:list[PhaseSegment] = []
         self.dev_ratio:float|None = None
         # incremental drying-end estimation state (see _threshold_index): scanned up to index, turning point, result
-        self._scan_key:tuple[int,float]|None = None
+        self._scan_key:tuple[int,object,int,float]|None = None
         self._scan_pos:int = 0
         self._tp_idx:int = 0
         self._tp_val:float|None = None
@@ -126,9 +126,13 @@ class PhaseBar(QFrame): # pyrefly:ignore[invalid-inheritance] # pyright: ignore 
         temp = qmc.temp2
         if len(temp) <= charge:
             return None
-        key = (charge, float(limit))
-        if self._scan_key != key or self._scan_pos > len(temp) or self._scan_pos < charge:
-            # new profile, new CHARGE, changed limit or the data shrank (RESET): start over
+        # the cache is bound to this profile's data list and roast; cached indices are re-validated against the data
+        key = (id(temp), getattr(qmc, 'roastUUID', None), charge, float(limit))
+        stale = (self._scan_key != key or self._scan_pos > len(temp) or self._scan_pos < charge
+                 or (self._tp_val is not None and (self._tp_idx >= len(temp) or temp[self._tp_idx] != self._tp_val))
+                 or (self._dry_idx is not None and (self._dry_idx >= len(temp) or temp[self._dry_idx] is None or temp[self._dry_idx] < limit)))
+        if stale:
+            # new profile, new CHARGE, changed limit, replaced data or the data shrank (RESET): start over
             self._scan_key = key
             self._scan_pos = charge
             self._tp_idx = charge
