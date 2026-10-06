@@ -1488,7 +1488,7 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
         'saveStatisticsMenu', 'printAction', 'quitAction', 'cutAction', 'copyAction', 'pasteAction', 'editGraphAction', 'backgroundAction',
         'flavorAction', 'switchAction', 'switchETBTAction', 'machineMenu', 'deviceAction', 'commportAction', 'calibrateDelayAction', 'curvesAction',
         'eventsAction', 'alarmAction', 'phasesGraphAction', 'StatisticsAction', 'WindowconfigAction', 'colorsAction', 'themeMenu', 'autosaveAction',
-        'emocoThemeMenu', 'emocoThemeActions', 'event_button_style_args',
+        'emocoThemeMenu', 'emocoThemeActions', 'event_button_style_args', 'eventButtonBaseText',
         'batchAction', 'temperatureConfMenu', 'FahrenheitAction', 'CelsiusAction', 'languageMenu', 'analyzeMenu', 'fitIdealautoAction',
         'analyzeMenu', 'fitIdealx2Action', 'fitIdealx3Action', 'fitIdealx0Action', 'fitBkgndAction', 'clearresultsAction', 'roastCompareAction',
         'designerAction', 'simulatorAction', 'wheeleditorAction', 'transformAction', 'temperatureMenu', 'ConvertToFahrenheitAction',
@@ -3568,6 +3568,11 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
                 'default_font_size': button_font_size_small_pt,
                 'selected_font_size': button_font_size_small_selected_pt}
         self.lowerbuttondialog.setStyleSheet(artisan_event_button_style.format(**self.event_button_style_args))
+
+        # the event buttons show the recorded time and BT as a second line; remember their base labels
+        self.eventButtonBaseText:dict[int,str] = {
+            i: b.text() for i, b in enumerate([self.buttonCHARGE, self.buttonDRY, self.buttonFCs, self.buttonFCe,
+                                               self.buttonSCs, self.buttonSCe, self.buttonDROP, self.buttonCOOL])}
 
         #initiate configuration
         self.lowerbuttondialogLayout.addStretch()
@@ -11490,6 +11495,34 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
         self.lowerbuttondialog.setVisible(True)
 
     # update the visibility of the extra event buttons based on the users preference for the current state
+    # shows the recorded time (from CHARGE) and BT of the main events as a second line on the event buttons
+    def updateEventButtonLabels(self) -> None:
+        try:
+            buttons = [self.buttonCHARGE, self.buttonDRY, self.buttonFCs, self.buttonFCe,
+                       self.buttonSCs, self.buttonSCe, self.buttonDROP, self.buttonCOOL]
+            timeindex = self.qmc.timeindex
+            timex = self.qmc.timex
+            temp = self.qmc.temp2
+            charge_idx = timeindex[0] if len(timeindex) > 0 else -1
+            for i, b in enumerate(buttons):
+                base = self.eventButtonBaseText.get(i, b.text())
+                text = base
+                if i < len(timeindex):
+                    idx = timeindex[i]
+                    recorded = (idx > -1) if i == 0 else (idx > 0)
+                    if recorded and 0 <= idx < len(timex) and idx < len(temp):
+                        start = timex[charge_idx] if 0 <= charge_idx < len(timex) else 0
+                        t = stringfromseconds(timex[idx] - start, leadingzero=False)
+                        v = temp[idx]
+                        if v is not None and v != -1:
+                            text = f'{base}\n{t} \u00b7 {v:.1f}\u00b0'
+                        else:
+                            text = f'{base}\n{t}'
+                if b.text() != text:
+                    b.setText(text)
+        except Exception as e: # pylint: disable=broad-except
+            _log.exception(e)
+
     def updateExtraButtonsVisibility(self) -> None:
         # update visibility (based on the app state)
         if self.qmc.flagstart:
