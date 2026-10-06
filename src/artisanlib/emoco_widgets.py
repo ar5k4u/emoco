@@ -16,7 +16,7 @@ import logging
 from typing import Final, TYPE_CHECKING
 
 from PyQt6.QtCore import Qt, QRectF
-from PyQt6.QtGui import QPainter, QColor, QPen, QPaintEvent, QFont
+from PyQt6.QtGui import QPainter, QColor, QPen, QPaintEvent, QFont, QFontMetrics
 from PyQt6.QtWidgets import QFrame, QApplication
 
 from artisanlib import emoco_theme
@@ -49,6 +49,12 @@ class PhaseBar(QFrame): # pyrefly:ignore[invalid-inheritance] # pyright: ignore 
         self.setObjectName('phaseCard')
         self.segments:list[PhaseSegment] = []
         self.dev_ratio:float|None = None
+        # incremental drying-end estimation state (see _threshold_index): scanned up to index, turning point, result
+        self._scan_key:tuple[int,float]|None = None
+        self._scan_pos:int = 0
+        self._tp_idx:int = 0
+        self._tp_val:float|None = None
+        self._dry_idx:int|None = None
         self.setMinimumHeight(66)
         self.setMaximumHeight(66)
         self.setVisible(False)
@@ -68,6 +74,11 @@ class PhaseBar(QFrame): # pyrefly:ignore[invalid-inheritance] # pyright: ignore 
                     self.setVisible(False)
                 return
             n = len(timex)
+            if qmc.flagstart and not -1 < timeindex[0] < n:
+                # recording but CHARGE not marked yet: the phases are relative to CHARGE, nothing to show
+                if self.isVisible():
+                    self.setVisible(False)
+                return
             charge = timeindex[0] if -1 < timeindex[0] < n else 0
             last = n - 1
             end = timeindex[6] if 0 < timeindex[6] < n else last
@@ -109,23 +120,36 @@ class PhaseBar(QFrame): # pyrefly:ignore[invalid-inheritance] # pyright: ignore 
         except Exception as e: # pylint: disable=broad-except
             _log.exception(e)
 
-    @staticmethod
-    def _threshold_index(qmc:'tgraphcanvas', charge:int, end:int, limit:float) -> int|None:
+    # index where BT first reaches the drying phase limit after the turning point (minimum BT after CHARGE), or None.
+    # The scan is incremental: only samples added since the last call are visited, so the per-sample cost stays constant.
+    def _threshold_index(self, qmc:'tgraphcanvas', charge:int, end:int, limit:float) -> int|None:
         temp = qmc.temp2
         if len(temp) <= charge:
             return None
-        # turning point: minimum BT after CHARGE
-        tp = charge
-        tp_v = None
-        for i in range(charge, min(end, len(temp) - 1) + 1):
+        key = (charge, float(limit))
+        if self._scan_key != key or self._scan_pos > len(temp) or self._scan_pos < charge:
+            # new profile, new CHARGE, changed limit or the data shrank (RESET): start over
+            self._scan_key = key
+            self._scan_pos = charge
+            self._tp_idx = charge
+            self._tp_val = None
+            self._dry_idx = None
+        if self._dry_idx is not None and self._dry_idx <= end:
+            return self._dry_idx
+        stop = min(end, len(temp) - 1)
+        i = self._scan_pos
+        while i <= stop:
             v = temp[i]
-            if v is not None and v != -1 and (tp_v is None or v < tp_v):
-                tp_v = v
-                tp = i
-        for i in range(tp, min(end, len(temp) - 1) + 1):
-            v = temp[i]
-            if v is not None and v != -1 and v >= limit:
-                return i
+            if v is not None and v != -1:
+                if self._tp_val is None or v < self._tp_val:
+                    self._tp_val = v
+                    self._tp_idx = i
+                elif v >= limit and i > self._tp_idx:
+                    self._dry_idx = i
+                    self._scan_pos = i + 1
+                    return i
+            i += 1
+        self._scan_pos = stop + 1
         return None
 
     def paintEvent(self, a0:QPaintEvent|None) -> None: # pylint: disable=unused-argument
@@ -181,16 +205,19 @@ class PhaseBar(QFrame): # pyrefly:ignore[invalid-inheritance] # pyright: ignore 
                     p.setPen(pen)
                     p.setBrush(Qt.BrushStyle.NoBrush)
                     p.drawRoundedRect(rect.adjusted(0.5, 0.5, -0.5, -0.5), 3, 3)
-                # label under the segment
+                # label under the segment, shortened to the segment width (drop 'ongoing' first, then elide)
                 p.setFont(font)
+                fm = QFontMetrics(font)
                 if s.known:
-                    label = f'{s.name} {stringfromseconds(s.seconds, False)}'
-                    if s.active:
-                        label += ' ' + QApplication.translate('Label', 'ongoing')
+                    short = f'{s.name} {stringfromseconds(s.seconds, False)}'
+                    label = short + (' ' + QApplication.translate('Label', 'ongoing') if s.active else '')
+                    if fm.horizontalAdvance(label) > sw:
+                        label = short
                     p.setPen(QPen(QColor(t['text'])))
                 else:
                     label = s.name
                     p.setPen(QPen(QColor(t['muted'])))
+                label = fm.elidedText(label, Qt.TextElideMode.ElideRight, max(int(sw), 10))
                 align = Qt.AlignmentFlag.AlignLeft
                 if i == 2:
                     align = Qt.AlignmentFlag.AlignRight
