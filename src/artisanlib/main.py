@@ -700,6 +700,7 @@ from artisanlib.wsport import wsport
 from artisanlib.modbusport import modbusport
 from artisanlib.event_button_style import artisan_event_button_style
 from artisanlib import emoco_theme
+from artisanlib.emoco_widgets import PhaseBar
 from artisanlib.simulator import Simulator
 from artisanlib.dialogs import HelpDlg, ArtisanInputDialog, ArtisanComboBoxDialog, ArtisanPortsDialog, ArtisanSliderLCDinputDlg
 from artisanlib.large_lcds import (LargeMainLCDs, LargeDeltaLCDs, LargePIDLCDs, LargeExtraLCDs, LargePhasesLCDs, LargeScaleLCDs)
@@ -1488,7 +1489,7 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
         'saveStatisticsMenu', 'printAction', 'quitAction', 'cutAction', 'copyAction', 'pasteAction', 'editGraphAction', 'backgroundAction',
         'flavorAction', 'switchAction', 'switchETBTAction', 'machineMenu', 'deviceAction', 'commportAction', 'calibrateDelayAction', 'curvesAction',
         'eventsAction', 'alarmAction', 'phasesGraphAction', 'StatisticsAction', 'WindowconfigAction', 'colorsAction', 'themeMenu', 'autosaveAction',
-        'emocoThemeMenu', 'emocoThemeActions', 'event_button_style_args', 'eventButtonBaseText',
+        'emocoThemeMenu', 'emocoThemeActions', 'event_button_style_args', 'eventButtonBaseText', 'phaseBar',
         'batchAction', 'temperatureConfMenu', 'FahrenheitAction', 'CelsiusAction', 'languageMenu', 'analyzeMenu', 'fitIdealautoAction',
         'analyzeMenu', 'fitIdealx2Action', 'fitIdealx3Action', 'fitIdealx0Action', 'fitBkgndAction', 'clearresultsAction', 'roastCompareAction',
         'designerAction', 'simulatorAction', 'wheeleditorAction', 'transformAction', 'temperatureMenu', 'ConvertToFahrenheitAction',
@@ -3964,6 +3965,8 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
         midleftlayout.setContentsMargins(0,0,0,0)
         midleftlayout.addWidget(self.messagelabel)
         midleftlayout.addLayout(level3layout)
+        self.phaseBar:PhaseBar = PhaseBar()
+        midleftlayout.addWidget(self.phaseBar)
         midleftlayout.addWidget(self.lowerbuttondialog)
         midleftlayout.addWidget(self.extrabuttondialogs)
 
@@ -11497,6 +11500,7 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
     # update the visibility of the extra event buttons based on the users preference for the current state
     # shows the recorded time (from CHARGE) and BT of the main events as a second line on the event buttons
     def updateEventButtonLabels(self) -> None:
+        self.phaseBar.refresh(self.qmc)
         try:
             buttons = [self.buttonCHARGE, self.buttonDRY, self.buttonFCs, self.buttonFCe,
                        self.buttonSCs, self.buttonSCe, self.buttonDROP, self.buttonCOOL]

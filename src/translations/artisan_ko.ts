@@ -12189,6 +12189,14 @@ When Keyboard Shortcuts are OFF adds a custom event</source>
 </context><context>
     <name>Label</name>
     <message>
+        <source>Development</source>
+        <translation>디벨롭</translation>
+    </message>
+    <message>
+        <source>ongoing</source>
+        <translation>진행 중</translation>
+    </message>
+    <message>
         <location filename="../artisanlib/events.py" line="3785" />
         <location filename="../artisanlib/events.py" line="1009" />
         <location filename="../artisanlib/events.py" line="743" />
@@ -13815,14 +13823,14 @@ When Keyboard Shortcuts are OFF adds a custom event</source>
         <location filename="../artisanlib/statistics.py" line="226" />
         <location filename="../artisanlib/phases.py" line="45" />
         <source>Drying</source>
-        <translation type="unfinished">건조구간</translation>
+        <translation>건조</translation>
     </message>
     <message>
         <location filename="../artisanlib/transposer.py" line="1028" />
         <location filename="../artisanlib/statistics.py" line="225" />
         <location filename="../artisanlib/phases.py" line="46" />
         <source>Maillard</source>
-        <translation type="unfinished">마이야반응</translation>
+        <translation>마이야르</translation>
     </message>
     <message>
         <location filename="../artisanlib/transposer.py" line="1029" />
