@@ -19000,6 +19000,50 @@ To keep it free and current please support us with your donation and subscribe t
 </context><context>
     <name>Plus</name>
     <message>
+        <source>Connected to {}</source>
+        <translation>{}에 연결됨</translation>
+    </message>
+    <message>
+        <source>{} turned off</source>
+        <translation>{} 꺼짐</translation>
+    </message>
+    <message>
+        <source>Couldn't connect to {}</source>
+        <translation>{}에 연결할 수 없습니다</translation>
+    </message>
+    <message>
+        <source>Disconnect {}?</source>
+        <translation>{} 연결을 해제하시겠습니까?</translation>
+    </message>
+    <message>
+        <source>{} connection lost. Reconnecting automatically...</source>
+        <translation>{} 연결이 끊어졌습니다. 자동으로 다시 연결 중...</translation>
+    </message>
+    <message>
+        <source>{} reconnected</source>
+        <translation>{} 다시 연결됨</translation>
+    </message>
+    <message>
+        <source>Updated data received from {}</source>
+        <translation>{}에서 변경된 데이터를 받았습니다</translation>
+    </message>
+    <message>
+        <source>Opens the registration page of {} in your browser</source>
+        <translation>{} 회원가입 페이지를 브라우저에서 엽니다</translation>
+    </message>
+    <message>
+        <source>Too many registration requests. Please try again later.</source>
+        <translation>가입 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.</translation>
+    </message>
+    <message>
+        <source>Registration is currently not available</source>
+        <translation>지금은 회원가입을 할 수 없습니다</translation>
+    </message>
+    <message>
+        <source>Please sign in again with your {} account</source>
+        <translation>{} 계정으로 다시 로그인해 주세요</translation>
+    </message>
+    <message>
         <location filename="../artisanlib/main.py" line="1212" />
         <source>debug logging ON</source>
         <translation>디버그 로깅 에</translation>
@@ -20895,6 +20939,22 @@ Pungency</source>
     </message>
 </context><context>
     <name>Tooltip</name>
+    <message>
+        <source>Syncing with {}</source>
+        <translation>{}와 동기화 중</translation>
+    </message>
+    <message>
+        <source>Disconnect {}</source>
+        <translation>{} 연결 해제</translation>
+    </message>
+    <message>
+        <source>Upload to {}</source>
+        <translation>{}에 업로드</translation>
+    </message>
+    <message>
+        <source>Connect {}</source>
+        <translation>{} 연결</translation>
+    </message>
     <message>
         <location filename="../artisanlib/axis.py" line="83" />
         <source>100% event values in step mode are aligned with the given y-axis value or the lowest phases limit if left empty</source>

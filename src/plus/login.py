@@ -23,12 +23,14 @@
 
 from PyQt6.QtWidgets import (QApplication, QCheckBox, QGroupBox, QHBoxLayout,
     QVBoxLayout, QLabel, QLineEdit, QDialogButtonBox, QWidget)
-from PyQt6.QtCore import Qt, pyqtSlot
-from PyQt6.QtGui import QKeySequence, QAction
+from PyQt6.QtCore import Qt, QUrl, pyqtSlot
+from PyQt6.QtGui import QKeySequence, QAction, QDesktopServices
 
 import logging
+import requests
+from artisanlib import __version__
 from artisanlib.dialogs import ArtisanDialog
-from plus import config
+from plus import config, connection
 from typing import Final, TYPE_CHECKING
 try:
     from typing import override
@@ -60,10 +62,15 @@ class Login(ArtisanDialog):
         self.remember:bool = remember_credentials
 
         register_text = QApplication.translate('Plus', 'Register')
+        # registration is only possible via a one-time ticket link requested from the server by the app
         self.linkRegister = QLabel(
-            f'<small><a href="{config.register_url}">{register_text}</a></small>'
+            f'<small><a href="#register">{register_text}</a></small>'
         )
-        self.linkRegister.setOpenExternalLinks(True)
+        self.linkRegister.setOpenExternalLinks(False)
+        self.linkRegister.linkActivated.connect(self.requestSignupTicket)
+        self.linkRegister.setToolTip(
+            QApplication.translate('Plus', 'Opens the registration page of {} in your browser').format(config.app_name)
+        )
         reset_text = QApplication.translate('Plus', 'Reset Password')
         self.linkResetPassword = QLabel(
             f'<small><a href="{config.reset_passwd_url}">{reset_text}</a></small>'
@@ -174,6 +181,40 @@ class Login(ArtisanDialog):
     @pyqtSlot(int)
     def rememberCheckChanged(self, i:int) -> None:
         self.remember = bool(i)
+
+    # requests a one-time signup ticket from the server and opens the registration page with it
+    @pyqtSlot(str)
+    def requestSignupTicket(self, _link:str = '') -> None:
+        try:
+            machine = ''
+            try:
+                machine = self.aw.qmc.roastertype_setup
+            except Exception: # pylint: disable=broad-except
+                pass
+            r = requests.post(
+                config.signup_ticket_url,
+                json={'machine': machine, 'app_version': __version__},
+                headers=connection.getHeaders(authorized=False),
+                verify=config.verify_ssl,
+                timeout=(config.connect_timeout, config.read_timeout),
+            )
+            _log.debug('-> signup ticket reply status code: %s', r.status_code)
+            res = r.json() if r.headers.get('content-type', '').strip().startswith('application/json') else {}
+            if r.status_code == 200 and res.get('success') and 'result' in res and 'ticket' in res['result']:
+                url = res['result'].get('register_url') or f"{config.register_url}?ticket={res['result']['ticket']}"
+                QDesktopServices.openUrl(QUrl(url, QUrl.ParsingMode.TolerantMode))
+                return
+            if r.status_code == 429:
+                message = QApplication.translate('Plus', 'Too many registration requests. Please try again later.')
+            else:
+                message = res.get('error') or QApplication.translate('Plus', 'Registration is currently not available')
+        except requests.exceptions.RequestException as e:
+            _log.info(e)
+            message = QApplication.translate('Plus', "Couldn't connect to {}").format(config.app_name)
+        except Exception as e: # pylint: disable=broad-except
+            _log.exception(e)
+            message = QApplication.translate('Plus', 'Registration is currently not available')
+        self.aw.sendmessage(message)
 
     def isInputReasonable(self) -> bool:
         login = self.textName.text()

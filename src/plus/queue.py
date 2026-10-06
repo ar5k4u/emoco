@@ -26,8 +26,9 @@ from PyQt6.QtCore import QCoreApplication, QObject, QThread, pyqtSlot, pyqtSigna
 from PyQt6.QtWidgets import QApplication
 
 from artisanlib.util import getDirectory
-from plus import config, util, roast, connection, sync, controller
+from plus import config, util, roast, connection, sync, controller, profile
 import threading
+import os
 import time
 import datetime
 import requests.models
@@ -121,10 +122,22 @@ class Worker(QObject): # pyright: ignore [reportGeneralTypeIssues] # pyrefly: ig
                         )
                         r:requests.models.Response|None = None
                         try:
+                            if profile.is_profile_item(item): # pyrefly: ignore
+                                # a profile file (.alog) upload for an already uploaded roast record
+                                if not os.path.isfile(item['file']): # pyrefly: ignore
+                                    # the profile was moved or deleted meanwhile; nothing to upload
+                                    _log.info('profile upload skipped, file not found: %s', item['file']) # pyrefly: ignore
+                                else:
+                                    controller.connect(
+                                        clear_on_failure=False, interactive=False
+                                    )
+                                    r = profile.upload(item) # pyrefly: ignore
+                                    r.raise_for_status()
+                                    _log.info('profile uploaded: %s', item['data']['roast_id']) # pyrefly: ignore
                             # we upload only full roast records, or partial updates
                             # in case they are under sync
                             # (registered in the sync cache)
-                            if is_full_roast_record(item['data']) or (     # pyrefly: ignore
+                            elif is_full_roast_record(item['data']) or (     # pyrefly: ignore
                                 'roast_id' in item['data']                 # pyrefly: ignore
                                 and sync.getSync(item['data']['roast_id']) # pyrefly: ignore
                             ):
@@ -243,8 +256,8 @@ class Worker(QObject): # pyright: ignore [reportGeneralTypeIssues] # pyrefly: ig
                                 # iteration
                                 time.sleep(config.queue_retry_delay)
                             elif (
-                                r is not None and r.status_code == 409
-                            ):  # conflict
+                                r is not None and r.status_code in {409, 413} # 409: conflict, 413: payload too large
+                            ):
                                 # we don't retry, but remove the task
                                 # as it is faulty
                                 iters = 0
@@ -470,6 +483,9 @@ def addRoast(roast_record:dict[str, Any]|None = None, unsynced:bool=False) -> No
                     if 'roast_id' in rr:
                         _log.info('roast queued: %s', rr['roast_id'])
                     _log.debug('-> qsize: %s', queue.qsize())
+                    # a full roast record is followed by its saved profile file, if any
+                    if roast_record is None and aw.curFile is not None and 'roast_id' in rr and aw.qmc.roastUUID == rr['roast_id']:
+                        profile.queue_profile_upload(aw.curFile, rr['roast_id'])
             else:
                 _log.debug(
                     '-> roast not queued as mandatory info missing'

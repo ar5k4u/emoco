@@ -21,7 +21,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from PyQt6.QtCore import QSemaphore, QTimer, Qt, pyqtSlot
+from PyQt6.QtCore import QSemaphore, QSettings, QTimer, Qt, pyqtSlot
 from PyQt6.QtWidgets import QWidget, QApplication, QMessageBox
 
 import platform
@@ -70,6 +70,24 @@ def is_synced() -> bool:
 def start(app_window:'ApplicationWindow') -> None:
     config.app_window = app_window
     QTimer.singleShot(2, connect)
+
+
+# Emoco connects to Emoco Cloud instead of artisan.plus. On the first start after this change
+# the remembered artisan.plus account is forgotten once, as it is not valid for the new service.
+def forget_artisan_plus_account(app_window:'ApplicationWindow') -> None:
+    try:
+        settings = QSettings()
+        if not settings.contains('emocoCloudAccount'):
+            if app_window.plus_account is not None or app_window.plus_email is not None:
+                _log.info('forgetting artisan.plus account on first Emoco Cloud start')
+                app_window.plus_account = None
+                app_window.plus_email = None
+                app_window.sendmessage(
+                    QApplication.translate('Plus', 'Please sign in again with your {} account').format(config.app_name)
+                )
+            settings.setValue('emocoCloudAccount', True)
+    except Exception as e:  # pylint: disable=broad-except
+        _log.exception(e)
 
 
 # toggles between connected and disconnected modes. If connected and
@@ -237,12 +255,12 @@ def connect(clear_on_failure: bool =False, interactive: bool = True) -> None:
                         )  # @UndefinedVariable
                         aw.sendmessageSignal.emit(
                             QApplication.translate(
-                                'Plus', 'Connected to artisan.plus'
-                            ),
+                                'Plus', 'Connected to {}'
+                            ).format(config.app_name),
                             True,
                             None,
                         )  # @UndefinedVariable
-                        _log.info('artisan.plus connected')
+                        _log.info('%s connected', config.app_name)
                         try:
                             queue.start()  # start the outbox queue
                         except Exception as e:  # pylint: disable=broad-except
@@ -255,8 +273,8 @@ def connect(clear_on_failure: bool =False, interactive: bool = True) -> None:
                         connection.clearCredentials()
                         aw.sendmessageSignal.emit(
                             QApplication.translate(
-                                'Plus', 'artisan.plus turned off'
-                            ),
+                                'Plus', '{} turned off'
+                            ).format(config.app_name),
                             True,
                             None,
                         )  # @UndefinedVariable
@@ -278,8 +296,8 @@ def connect(clear_on_failure: bool =False, interactive: bool = True) -> None:
                 if interactive and aw is not None:
                     aw.sendmessageSignal.emit(
                         QApplication.translate(
-                            'Plus', 'artisan.plus turned off'
-                        ),
+                            'Plus', '{} turned off'
+                        ).format(config.app_name),
                         True,
                         None,
                     )
@@ -287,8 +305,8 @@ def connect(clear_on_failure: bool =False, interactive: bool = True) -> None:
                 if interactive:
                     aw.sendmessageSignal.emit(
                         QApplication.translate(
-                            'Plus', "Couldn't connect to artisan.plus"
-                        ),
+                            'Plus', "Couldn't connect to {}"
+                        ).format(config.app_name),
                         True,
                         None,
                     )
@@ -311,7 +329,7 @@ def connect(clear_on_failure: bool =False, interactive: bool = True) -> None:
 
 # show a dialog to have the user confirm the disconnect action
 def disconnect_confirmed() -> bool:
-    string = QApplication.translate('Plus', 'Disconnect artisan.plus?')
+    string = QApplication.translate('Plus', 'Disconnect {}?').format(config.app_name)
     aw = config.app_window
     assert isinstance(aw, QWidget) # pyrefly: ignore
 #    reply = QMessageBox.question(
@@ -363,8 +381,8 @@ def disconnect(
                 if remove_credentials:
                     aw.sendmessageSignal.emit(
                         QApplication.translate(
-                            'Plus', 'artisan.plus turned off'
-                        ),
+                            'Plus', '{} turned off'
+                        ).format(config.app_name),
                         True,
                         None,
                     )
@@ -372,18 +390,18 @@ def disconnect(
                     aw.sendmessageSignal.emit(
                         (
                         QApplication.translate(
-                            'Plus', 'artisan.plus connection lost. Reconnecting automatically...'
-                        )
+                            'Plus', '{} connection lost. Reconnecting automatically...'
+                        ).format(config.app_name)
                         if keepON else
                         QApplication.translate(
-                            'Plus', 'artisan.plus disconnected'
-                        )),
+                            'Plus', '{} disconnected'
+                        ).format(config.app_name)),
                         True,
                         None,
                     )
             if stop_queue:
                 queue.stop()  # stop the outbox queue
-            _log.info('artisan.plus disconnected')
+            _log.info('%s disconnected', config.app_name)
         finally:
             if connect_semaphore.available() < 1:
                 connect_semaphore.release(1)
@@ -397,7 +415,7 @@ def reconnected() -> None:
         try:
             connect_semaphore.acquire(1)
             config.connected = True
-            _log.info('artisan.plus reconnected')
+            _log.info('%s reconnected', config.app_name)
         finally:
             if connect_semaphore.available() < 1:
                 connect_semaphore.release(1)
@@ -409,7 +427,7 @@ def reconnected() -> None:
             if aw is not None:
                 aw.sendmessageSignal.emit(
                     QApplication.translate(
-                        'Plus', 'artisan.plus reconnected'),
+                        'Plus', '{} reconnected').format(config.app_name),
                     True,
                     None)
 

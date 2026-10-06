@@ -351,7 +351,7 @@ def getHeaders(
     if aw is not None:
         os, os_version, os_arch = aw.get_os()  # @UndefinedVariable
         headers = {
-            'user-agent': f'Artisan/{__version__} ({os}; {os_version}; {os_arch})',
+            'user-agent': f'Emoco/{__version__} ({os}; {os_version}; {os_arch})',
             'Accept-Charset': 'utf-8'
         }
         try:
