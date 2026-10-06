@@ -5499,6 +5499,7 @@ class tgraphcanvas(QObject):
         if not gotlock:
             _log.info('updategraphics(): failed to get updateGraphicsSemaphore lock')
         else:
+            self.aw.updateEventButtonLabels()
             try:
                 if self.flagon and self.ax is not None:
                     #### lock shared resources #####
@@ -9359,6 +9360,7 @@ class tgraphcanvas(QObject):
             titleB = ''
             # keep extra device curves readable on the plot background of the active theme
             emoco_theme.fix_extra_curve_colors(self)
+            self.aw.updateEventButtonLabels()
             try:
                 #### lock shared resources   ####
                 if takelock:

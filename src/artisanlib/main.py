@@ -54,6 +54,7 @@ signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 import zlib
 import logging.config
+import html
 from yaml import safe_load as yaml_load
 from collections.abc import Callable
 from typing import Final, cast, Any, Literal, TYPE_CHECKING
@@ -115,8 +116,8 @@ from PyQt6.QtWidgets import (QApplication, QWidget, QMessageBox, QLabel, QMainWi
                          QLCDNumber, QSpinBox, QComboBox,
                          QSlider,
                          QColorDialog, QFrame, QScrollArea, QProgressDialog,
-                         QStyleFactory, QMenuBar, QMenu, QLayout, QDockWidget)
-from PyQt6.QtGui import (QScreen, QPageLayout, QAction, QImageReader, QWindow,
+                         QStyleFactory, QMenuBar, QMenu, QLayout, QGridLayout, QDockWidget)
+from PyQt6.QtGui import (QScreen, QPageLayout, QAction, QImageReader, QWindow, QFontMetrics,
                             QKeySequence, QShortcut,
                             QPixmap,QColor,QDesktopServices,QIcon,
                             QRegularExpressionValidator, QDoubleValidator, QPainter, QCursor)
@@ -700,6 +701,7 @@ from artisanlib.wsport import wsport
 from artisanlib.modbusport import modbusport
 from artisanlib.event_button_style import artisan_event_button_style
 from artisanlib import emoco_theme
+from artisanlib.emoco_widgets import PhaseBar, TimerCard, InfoCard, ColumnScrollArea
 from artisanlib.simulator import Simulator
 from artisanlib.dialogs import HelpDlg, ArtisanInputDialog, ArtisanComboBoxDialog, ArtisanPortsDialog, ArtisanSliderLCDinputDlg
 from artisanlib.large_lcds import (LargeMainLCDs, LargeDeltaLCDs, LargePIDLCDs, LargeExtraLCDs, LargePhasesLCDs, LargeScaleLCDs)
@@ -1488,7 +1490,7 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
         'saveStatisticsMenu', 'printAction', 'quitAction', 'cutAction', 'copyAction', 'pasteAction', 'editGraphAction', 'backgroundAction',
         'flavorAction', 'switchAction', 'switchETBTAction', 'machineMenu', 'deviceAction', 'commportAction', 'calibrateDelayAction', 'curvesAction',
         'eventsAction', 'alarmAction', 'phasesGraphAction', 'StatisticsAction', 'WindowconfigAction', 'colorsAction', 'themeMenu', 'autosaveAction',
-        'emocoThemeMenu', 'emocoThemeActions', 'event_button_style_args',
+        'emocoThemeMenu', 'emocoThemeActions', 'event_button_style_args', 'eventButtonBaseText', 'phaseBar', 'sliderStepButtons', 'timerCard', 'infoCard', 'headerInfoLabel', 'headerInfoText',
         'batchAction', 'temperatureConfMenu', 'FahrenheitAction', 'CelsiusAction', 'languageMenu', 'analyzeMenu', 'fitIdealautoAction',
         'analyzeMenu', 'fitIdealx2Action', 'fitIdealx3Action', 'fitIdealx0Action', 'fitBkgndAction', 'clearresultsAction', 'roastCompareAction',
         'designerAction', 'simulatorAction', 'wheeleditorAction', 'transformAction', 'temperatureMenu', 'ConvertToFahrenheitAction',
@@ -3569,6 +3571,11 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
                 'selected_font_size': button_font_size_small_selected_pt}
         self.lowerbuttondialog.setStyleSheet(artisan_event_button_style.format(**self.event_button_style_args))
 
+        # the event buttons show the recorded time and BT as a second line; remember their base labels
+        self.eventButtonBaseText:dict[int,str] = {
+            i: b.text() for i, b in enumerate([self.buttonCHARGE, self.buttonDRY, self.buttonFCs, self.buttonFCe,
+                                               self.buttonSCs, self.buttonSCe, self.buttonDROP, self.buttonCOOL])}
+
         #initiate configuration
         self.lowerbuttondialogLayout.addStretch()
         self.lowerbuttondialogLayout.addWidget(self.buttonCHARGE)
@@ -3736,63 +3743,54 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
         self.EventsGroupLayout.setLayout(EventsLayout)
         self.EventsGroupLayout.setVisible(False)
 
+        # the readings are shown as cards in a two column grid: ET | BT, deltaET | deltaBT, SV | PID, extra device 1 | extra device 2
+        LCDgrid = QGridLayout()
+        LCDgrid.setSpacing(6)
+        LCDgrid.setContentsMargins(0,0,5,0)
+        LCDgrid.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
         LCDlayout = QVBoxLayout()
-        LCDlayout.setSpacing(0)
+        LCDlayout.setSpacing(6)
         LCDlayout.setContentsMargins(0,0,5,0)
-        LCDlayout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
+        # the timer sits in a card on top of the readings
+        self.timerCard:TimerCard = TimerCard(self.lcd1)
+        LCDlayout.addWidget(self.timerCard)
+        LCDlayout.addLayout(LCDgrid)
+        LCDlayout.addStretch()
 
         #place control buttons + LCDs inside vertical button layout manager
         self.LCD2frame:ClickableLCDFrame = ClickableLCDFrame()
         self.LCD2frame.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.LCD2frame.customContextMenuRequested.connect(self.setTareET)
         self.LCD2frame.left_clicked.connect(self.toggleETlcdCurve)
-        w = self.makeLCDbox(self.label2,self.lcd2,self.LCD2frame)
-        LCDlayout.addWidget(w)
-        LCDlayout.setAlignment(w,Qt.AlignmentFlag.AlignRight)
+        LCDgrid.addWidget(self.makeLCDbox(self.label2,self.lcd2,self.LCD2frame),0,0)
 
         self.LCD3frame:ClickableLCDFrame = ClickableLCDFrame()
         self.LCD3frame.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.LCD3frame.customContextMenuRequested.connect(self.setTareBT)
         self.LCD3frame.left_clicked.connect(self.toggleBTlcdCurve)
-        w = self.makeLCDbox(self.label3,self.lcd3,self.LCD3frame)
-        LCDlayout.addWidget(w)
-        LCDlayout.setAlignment(w,Qt.AlignmentFlag.AlignRight)
+        LCDgrid.addWidget(self.makeLCDbox(self.label3,self.lcd3,self.LCD3frame),0,1)
 
         self.LCD4frame:ClickableLCDFrame = ClickableLCDFrame()
         self.LCD4frame.left_clicked.connect(self.toggleDeltaETlcdCurve)
-        w = self.makeLCDbox(self.label4,self.lcd4,self.LCD4frame)
-        LCDlayout.addWidget(w)
-        LCDlayout.setAlignment(w,Qt.AlignmentFlag.AlignRight)
+        LCDgrid.addWidget(self.makeLCDbox(self.label4,self.lcd4,self.LCD4frame),1,0)
         self.LCD4frame.setVisible(False) # by default this one is not visible
 
         self.LCD5frame:ClickableLCDFrame = ClickableLCDFrame()
         self.LCD5frame.left_clicked.connect(self.toggleDeltaBTlcdCurve)
-        w = self.makeLCDbox(self.label5,self.lcd5,self.LCD5frame)
-        LCDlayout.addWidget(w)
-        LCDlayout.setAlignment(w,Qt.AlignmentFlag.AlignRight)
+        LCDgrid.addWidget(self.makeLCDbox(self.label5,self.lcd5,self.LCD5frame),1,1)
 
         self.LCD6frame:QFrame = QFrame()
-        w = self.makeLCDbox(self.label6,self.lcd6,self.LCD6frame)
-        LCDlayout.addWidget(w)
-        LCDlayout.setAlignment(w,Qt.AlignmentFlag.AlignRight)
+        LCDgrid.addWidget(self.makeLCDbox(self.label6,self.lcd6,self.LCD6frame),2,0)
         self.LCD6frame.setVisible(False)
 
         self.LCD7frame:QFrame = QFrame()
-        w = self.makeLCDbox(self.label7,self.lcd7,self.LCD7frame)
-        LCDlayout.addWidget(w)
-        LCDlayout.setAlignment(w,Qt.AlignmentFlag.AlignRight)
+        LCDgrid.addWidget(self.makeLCDbox(self.label7,self.lcd7,self.LCD7frame),2,1)
         self.LCD7frame.setVisible(False)
 
         #add extra LCDs
         for i in range(self.nLCDS):
-            w = self.makeLCDbox(self.extraLCDlabel1[i],self.extraLCD1[i],self.extraLCDframe1[i])
-            LCDlayout.addWidget(w)
-            LCDlayout.setAlignment(w,Qt.AlignmentFlag.AlignRight)
-            w = self.makeLCDbox(self.extraLCDlabel2[i],self.extraLCD2[i],self.extraLCDframe2[i])
-            LCDlayout.addWidget(w)
-            LCDlayout.setAlignment(w,Qt.AlignmentFlag.AlignRight)
-        LCDlayout.addStretch()
-        del w
+            LCDgrid.addWidget(self.makeLCDbox(self.extraLCDlabel1[i],self.extraLCD1[i],self.extraLCDframe1[i]),3+i,0)
+            LCDgrid.addWidget(self.makeLCDbox(self.extraLCDlabel2[i],self.extraLCD2[i],self.extraLCDframe2[i]),3+i,1)
 
         #PID Buttons
         pidbuttonLayout.addWidget(self.buttonSVp20)
@@ -3876,7 +3874,7 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
 
         self.phasesLCDs: QFrame = QFrame()
         self.phasesLCDs.setContentsMargins(0, 0, 0, 0)
-        phasesLCDlayout = QHBoxLayout()
+        phasesLCDlayout = QVBoxLayout()
         phasesLCDlayout.addWidget(self.TPlcdFrame)
         phasesLCDlayout.addWidget(self.TP2DRYframe)
         phasesLCDlayout.addWidget(self.DRYlcdFrame)
@@ -3888,10 +3886,21 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
         self.phasesLCDs.hide()
         self.phasesLCDs.setToolTip(QApplication.translate('Tooltip','Phase LCDs: right-click to cycle through TIME, PERCENTAGE and TEMP MODE'))
 
+        # phase predictions, AUC and background difference as a card below the readings (before the stretch)
+        self.infoCard:InfoCard = InfoCard(self.phasesLCDs, self.AUCLCD)
+        LCDlayout.insertWidget(2, self.infoCard)
+
+        # header: roast title, batch and charge weight next to the toolbar
+        self.headerInfoLabel:QLabel = QLabel()
+        self.headerInfoLabel.setObjectName('headerInfo')
+        self.headerInfoLabel.setTextFormat(Qt.TextFormat.RichText)
+        self.headerInfoLabel.setVisible(False)
+        self.headerInfoText:str = ''
+
         #level 1
+        self.level1layout.addSpacing(12)
+        self.level1layout.addWidget(self.headerInfoLabel)
         self.level1layout.addStretch()
-        self.level1layout.addWidget(self.phasesLCDs)
-        self.level1layout.addWidget(self.AUCLCD)
         self.level1layout.addSpacing(20)
         self.level1layout.addWidget(self.buttonRESET)
         self.level1layout.addSpacing(10)
@@ -3901,7 +3910,6 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
         self.level1layout.addSpacing(15)
         self.level1layout.addWidget(self.buttonCONTROL)
         self.level1layout.addSpacing(10)
-        self.level1layout.addWidget(self.lcd1)
         self.level1layout.setSpacing(0)
         self.level1layout.setContentsMargins(0,7,7,12) # left, top, right, bottom
 
@@ -3971,26 +3979,30 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
         midleftlayout.setContentsMargins(0,0,0,0)
         midleftlayout.addWidget(self.messagelabel)
         midleftlayout.addLayout(level3layout)
+        self.phaseBar:PhaseBar = PhaseBar()
+        midleftlayout.addWidget(self.phaseBar)
         midleftlayout.addWidget(self.lowerbuttondialog)
         midleftlayout.addWidget(self.extrabuttondialogs)
 
         midleftlayout.addWidget(self.EventsGroupLayout)
 
+        self.sliderStepButtons:list[QPushButton] = []
         self.slider1:QSlider = self.slider()
         self.sliderLCD1:MyQLCDNumber = self.sliderLCD()
         self.sliderLCD1.setStyleSheet(self.sliderLCDstyle(0))
         self.sliderLCD1.display(self.slider1.value())
-        sliderGrp1 = QVBoxLayout()
+        sliderGrp1 = QHBoxLayout()
+        sliderGrp1.addWidget(self.sliderStepButton(0, -1))
+        sliderGrp1.addWidget(self.slider1, 1)
+        sliderGrp1.addWidget(self.sliderStepButton(0, 1))
         sliderGrp1.addWidget(self.sliderLCD1)
-        sliderGrp1.addWidget(self.slider1)
         sliderGrp1.setAlignment(Qt.AlignmentFlag.AlignCenter)
         sliderGrp1.setContentsMargins(0,7,0,0)
         sliderGrp1.setSpacing(0)
         self.sliderGrpBox1 = QGroupBox()
         self.sliderGrpBox1.setLayout(sliderGrp1)
         self.sliderGrpBox1.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.sliderGrpBox1.setMinimumWidth(55)
-        self.sliderGrpBox1.setMaximumWidth(55)
+        self.sliderGrpBox1.setMinimumWidth(240)
         self.sliderGrpBox1.setVisible(False)
         self.sliderGrpBox1.setFlat(True)
         self.sliderGrpBox1x = QVBoxLayout() # we had to add this extra layer of QVBoxLayout for alignment issues
@@ -4010,17 +4022,18 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
         self.sliderLCD2:MyQLCDNumber = self.sliderLCD()
         self.sliderLCD2.setStyleSheet(self.sliderLCDstyle(1))
         self.sliderLCD2.display(self.slider2.value())
-        sliderGrp2 = QVBoxLayout()
+        sliderGrp2 = QHBoxLayout()
+        sliderGrp2.addWidget(self.sliderStepButton(1, -1))
+        sliderGrp2.addWidget(self.slider2, 1)
+        sliderGrp2.addWidget(self.sliderStepButton(1, 1))
         sliderGrp2.addWidget(self.sliderLCD2)
-        sliderGrp2.addWidget(self.slider2)
         sliderGrp2.setAlignment(Qt.AlignmentFlag.AlignCenter)
         sliderGrp2.setContentsMargins(0,7,0,0)
         sliderGrp2.setSpacing(0)
         self.sliderGrpBox2 = QGroupBox()
         self.sliderGrpBox2.setLayout(sliderGrp2)
         self.sliderGrpBox2.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.sliderGrpBox2.setMinimumWidth(55)
-        self.sliderGrpBox2.setMaximumWidth(55)
+        self.sliderGrpBox2.setMinimumWidth(240)
         self.sliderGrpBox2.setVisible(False)
         self.sliderGrpBox2.setFlat(True)
         self.sliderGrpBox2x = QVBoxLayout() # we had to add this extra layer of QVBoxLayout for alignment issues
@@ -4040,17 +4053,18 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
         self.sliderLCD3:MyQLCDNumber = self.sliderLCD()
         self.sliderLCD3.setStyleSheet(self.sliderLCDstyle(2))
         self.sliderLCD3.display(self.slider3.value())
-        sliderGrp3 = QVBoxLayout()
+        sliderGrp3 = QHBoxLayout()
+        sliderGrp3.addWidget(self.sliderStepButton(2, -1))
+        sliderGrp3.addWidget(self.slider3, 1)
+        sliderGrp3.addWidget(self.sliderStepButton(2, 1))
         sliderGrp3.addWidget(self.sliderLCD3)
-        sliderGrp3.addWidget(self.slider3)
         sliderGrp3.setAlignment(Qt.AlignmentFlag.AlignCenter)
         sliderGrp3.setContentsMargins(0,7,0,0)
         sliderGrp3.setSpacing(0)
         self.sliderGrpBox3 = QGroupBox()
         self.sliderGrpBox3.setLayout(sliderGrp3)
         self.sliderGrpBox3.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.sliderGrpBox3.setMinimumWidth(55)
-        self.sliderGrpBox3.setMaximumWidth(55)
+        self.sliderGrpBox3.setMinimumWidth(240)
         self.sliderGrpBox3.setVisible(False)
         self.sliderGrpBox3.setFlat(True)
         self.sliderGrpBox3x = QVBoxLayout() # we had to add this extra layer of QVBoxLayout for alignment issues
@@ -4070,17 +4084,18 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
         self.sliderLCD4:MyQLCDNumber = self.sliderLCD()
         self.sliderLCD4.setStyleSheet(self.sliderLCDstyle(3))
         self.sliderLCD4.display(self.slider4.value())
-        sliderGrp4 = QVBoxLayout()
+        sliderGrp4 = QHBoxLayout()
+        sliderGrp4.addWidget(self.sliderStepButton(3, -1))
+        sliderGrp4.addWidget(self.slider4, 1)
+        sliderGrp4.addWidget(self.sliderStepButton(3, 1))
         sliderGrp4.addWidget(self.sliderLCD4)
-        sliderGrp4.addWidget(self.slider4)
         sliderGrp4.setAlignment(Qt.AlignmentFlag.AlignCenter)
         sliderGrp4.setContentsMargins(0,7,0,0)
         sliderGrp4.setSpacing(0)
         self.sliderGrpBox4 = QGroupBox()
         self.sliderGrpBox4.setLayout(sliderGrp4)
         self.sliderGrpBox4.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.sliderGrpBox4.setMinimumWidth(55)
-        self.sliderGrpBox4.setMaximumWidth(55)
+        self.sliderGrpBox4.setMinimumWidth(240)
         self.sliderGrpBox4.setVisible(False)
         self.sliderGrpBox4.setFlat(True)
         self.sliderGrpBox4x = QVBoxLayout() # we had to add this extra layer of QVBoxLayout for alignment issues
@@ -4103,17 +4118,18 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
         self.sliderLCDSV.setStyleSheet('font-weight: bold;')
         sv = max(min(self.pidcontrol.svValue, self.pidcontrol.svSliderMax), self.pidcontrol.svSliderMin)
         self.updateSliderLCD(4,sv)
-        sliderGrpSV = QVBoxLayout()
+        sliderGrpSV = QHBoxLayout()
+        sliderGrpSV.addWidget(self.sliderStepButton(4, -1))
+        sliderGrpSV.addWidget(self.sliderSV, 1)
+        sliderGrpSV.addWidget(self.sliderStepButton(4, 1))
         sliderGrpSV.addWidget(self.sliderLCDSV)
-        sliderGrpSV.addWidget(self.sliderSV)
         sliderGrpSV.setAlignment(Qt.AlignmentFlag.AlignCenter)
         sliderGrpSV.setContentsMargins(0,7,0,0)
         sliderGrpSV.setSpacing(0)
         self.sliderGrpBoxSV: QGroupBox = QGroupBox()
         self.sliderGrpBoxSV.setLayout(sliderGrpSV)
         self.sliderGrpBoxSV.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.sliderGrpBoxSV.setMinimumWidth(55)
-        self.sliderGrpBoxSV.setMaximumWidth(55)
+        self.sliderGrpBoxSV.setMinimumWidth(240)
         self.sliderGrpBoxSV.setVisible(False)
         self.sliderGrpBoxSV.setTitle(QApplication.translate('Label','SV'))
         self.sliderGrpBoxSV.setFlat(True)
@@ -4141,12 +4157,13 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
         sliderGrpSV.setContentsMargins(0,0,0,0)
         sliderGrpSV.addWidget(self.sliderGrpBoxSV)
 
-        self.leftlayout:QHBoxLayout = QHBoxLayout()
+        self.leftlayout:QVBoxLayout = QVBoxLayout()
         self.leftlayout.setSpacing(0)
         self.leftlayout.setContentsMargins(0,0,0,0)
         self.leftlayout.addLayout(self.sliderGrp12)
         self.leftlayout.addLayout(self.sliderGrp34)
         self.leftlayout.addLayout(sliderGrpSV)
+        self.leftlayout.addStretch()
 
         self.sliderFrame:QFrame = QFrame()
         self.sliderFrame.setLayout(self.leftlayout)
@@ -4156,17 +4173,23 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
         self.sliderDock.setObjectName('sliderDock') # object is needed to have saveState() working
 #        self.sliderDock.setWindowTitle(QApplication.translate('Tab','Sliders'))
         self.sliderDock.setWidget(self.sliderFrame)
-        self.sliderFrame.setSizePolicy(QSizePolicy.Policy.Fixed,QSizePolicy.Policy.Ignored)
+        self.sliderFrame.setSizePolicy(QSizePolicy.Policy.Fixed,QSizePolicy.Policy.Preferred)
         self.sliderDock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea|Qt.DockWidgetArea.RightDockWidgetArea)
         self.sliderDock.setFloating(False)
         self.sliderDock.setFeatures(QDockWidget.DockWidgetFeature.NoDockWidgetFeatures | QDockWidget.DockWidgetFeature.DockWidgetMovable | QDockWidget.DockWidgetFeature.DockWidgetFloatable)
 
         self.sliderDock.setVisible(False)
 
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.sliderDock)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.sliderDock) # the control panel sits right of the readings
 
         self.lcdFrame:QFrame = QFrame()
-        self.lcdFrame.setLayout(LCDlayout)
+        lcdColumn = QWidget()
+        lcdColumn.setLayout(LCDlayout)
+        lcdColumnLayout = QVBoxLayout()
+        lcdColumnLayout.setContentsMargins(0,0,0,0)
+        lcdColumnLayout.setSpacing(0)
+        lcdColumnLayout.addWidget(ColumnScrollArea(lcdColumn)) # scrolls vertically when the window is too low
+        self.lcdFrame.setLayout(lcdColumnLayout)
         self.lcdFrame.setVisible(False)
         self.lcdFrame.setContentsMargins(0,0,0,0)
         self.lcdFrame.setSizePolicy(QSizePolicy.Policy.Maximum,QSizePolicy.Policy.Expanding) # prevent horizontal expansion (graph might not maximize otherwise)
@@ -8182,17 +8205,21 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
 
     @staticmethod
     def makeLCDbox(label:QLabel, lcd:MyQLCDNumber, lcdframe:QFrame) -> QFrame:
+        # a reading card: the label in the top left corner, the LCD below aligned right
         LCDbox = QVBoxLayout()
-        LCDbox.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
-        LCDbox.setSpacing(0)
+        LCDbox.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
+        LCDbox.setSpacing(2)
+        label.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignLeft)
         LCDbox.addWidget(label)
         LCDhBox = QHBoxLayout()
         LCDhBox.addStretch()
         LCDhBox.addWidget(lcd)
         LCDbox.addLayout(LCDhBox)
         LCDhBox.setContentsMargins(0, 0, 0, 0)
-        LCDbox.setContentsMargins(0, 0, 0, 0)
-        lcdframe.setContentsMargins(0, 10, 0, 3)
+        LCDbox.setContentsMargins(10, 6, 10, 8)
+        lcdframe.setObjectName('lcdCard')
+        lcdframe.setContentsMargins(0, 0, 0, 0)
+        lcdframe.setStyleSheet(emoco_theme.lcd_card_style())
         lcdframe.setLayout(LCDbox)
         return lcdframe
 
@@ -8597,15 +8624,46 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
     @staticmethod
     def slider() -> SliderUnclickable:
         s = SliderUnclickable()
-        s.setTickPosition(QSlider.TickPosition.TicksBothSides)
+        s.setOrientation(Qt.Orientation.Horizontal)
+        s.setTickPosition(QSlider.TickPosition.NoTicks)
         s.setTickInterval(10)
         s.setSingleStep(1)
         s.setPageStep(10)
         s.setMaximum(100)
-        s.setMinimumWidth(50)
-        s.setMaximumWidth(50)
+        s.setMinimumWidth(120)
+        s.setMinimumHeight(28)
         s.setContentsMargins(0,0,0,0)
         return s
+
+    # a small - / + button stepping the event slider n by its step size and recording the event like a slider release
+    def sliderStepButton(self, n:int, direction:int) -> QPushButton:
+        b = QPushButton('-' if direction < 0 else '+')
+        b.setObjectName('sliderStep')
+        b.setFixedSize(28, 28)
+        b.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        b.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        b.clicked.connect(lambda _checked=False, n=n, d=direction: self.sliderStep(n, d))
+        self.sliderStepButtons.append(b)
+        return b
+
+    @pyqtSlot()
+    def sliderStep(self, n:int, direction:int) -> None:
+        try:
+            sliders = [self.slider1, self.slider2, self.slider3, self.slider4, self.sliderSV]
+            if 0 <= n < len(sliders):
+                slider = sliders[n]
+                step = self.eventSliderStepSize(n) if n < 4 else slider.singleStep()
+                # start from the value quantized to the step grid so a coarse step always moves by exactly one step
+                base = self.applySliderStepSize(n, slider.value()) if n < 4 else slider.value()
+                v = max(slider.minimum(), min(slider.maximum(), base + direction * step))
+                if v != slider.value():
+                    slider.setValue(v)
+                    if n < 4:
+                        self.sliderReleased(n, force=True, updateLCD=True)
+                    else:
+                        self.sliderSVreleased()
+        except Exception as e: # pylint: disable=broad-except
+            _log.exception(e)
 
     def updateSliderMinMax(self) -> None:
         # first block slider signals to avoid sending out signals
@@ -11498,6 +11556,66 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
         self.lowerbuttondialog.setVisible(True)
 
     # update the visibility of the extra event buttons based on the users preference for the current state
+    # header line next to the toolbar: roast title, batch number and charge weight
+    def updateHeaderInfo(self) -> None:
+        try:
+            # the default title (in any language) is not shown; long titles are elided to keep the toolbar in place
+            default_titles = {'Roaster Scope', QApplication.translate('Scope Title', 'Roaster Scope')}
+            title = self.qmc.title.strip() if self.qmc.title.strip() not in default_titles else ''
+            if title:
+                title = QFontMetrics(self.headerInfoLabel.font()).elidedText(title, Qt.TextElideMode.ElideRight, 320)
+            parts:list[str] = []
+            if self.qmc.roastbatchnr != 0:
+                parts.append(QApplication.translate('Label', 'Batch') + f' {self.qmc.roastbatchprefix}{self.qmc.roastbatchnr}')
+            if self.qmc.weight[0] > 0:
+                w = self.qmc.weight[0]
+                unit = self.qmc.weight[2]
+                parts.append(QApplication.translate('Label', 'Charge') + (f' {w:,.0f} {unit}' if unit == 'g' else f' {w:g} {unit}'))
+            muted = emoco_theme.token('muted')
+            text = ''
+            if title:
+                text = f'<b>{html.escape(title)}</b>'
+            if parts:
+                text += ('&nbsp;&nbsp;' if text else '') + f'<span style="color:{muted}">' + html.escape(' \u00b7 '.join(parts)) + '</span>'
+            if text != self.headerInfoText:
+                self.headerInfoText = text
+                self.headerInfoLabel.setText(text)
+                self.headerInfoLabel.setVisible(text != '')
+        except Exception as e: # pylint: disable=broad-except
+            _log.exception(e)
+
+    # shows the recorded time (from CHARGE) and BT of the main events as a second line on the event buttons
+    def updateEventButtonLabels(self) -> None:
+        self.phaseBar.refresh(self.qmc)
+        self.timerCard.refresh(self.qmc, self.phaseBar)
+        self.infoCard.refresh(self.qmc)
+        self.updateHeaderInfo()
+        try:
+            buttons = [self.buttonCHARGE, self.buttonDRY, self.buttonFCs, self.buttonFCe,
+                       self.buttonSCs, self.buttonSCe, self.buttonDROP, self.buttonCOOL]
+            timeindex = self.qmc.timeindex
+            timex = self.qmc.timex
+            temp = self.qmc.temp2
+            charge_idx = timeindex[0] if len(timeindex) > 0 else -1
+            for i, b in enumerate(buttons):
+                base = self.eventButtonBaseText.get(i, b.text())
+                text = base
+                if i < len(timeindex):
+                    idx = timeindex[i]
+                    recorded = (idx > -1) if i == 0 else (idx > 0)
+                    if recorded and 0 <= idx < len(timex) and idx < len(temp):
+                        start = timex[charge_idx] if 0 <= charge_idx < len(timex) else 0
+                        t = stringfromseconds(timex[idx] - start, leadingzero=False)
+                        v = temp[idx]
+                        if v is not None and v != -1:
+                            text = f'{base}\n{t} \u00b7 {v:.1f}\u00b0'
+                        else:
+                            text = f'{base}\n{t}'
+                if b.text() != text:
+                    b.setText(text)
+        except Exception as e: # pylint: disable=broad-except
+            _log.exception(e)
+
     def updateExtraButtonsVisibility(self) -> None:
         # update visibility (based on the app state)
         if self.qmc.flagstart:
@@ -11723,6 +11841,7 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
 
     def hideLCDs(self, changeDefault:bool = True) -> None:
         self.lcd1.setVisible(False)
+        self.timerCard.setVisible(False)
         self.lcdFrame.setVisible(False)
         self.readingsAction.setChecked(False)
         if changeDefault:
@@ -11735,6 +11854,7 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
 
     def showLCDs(self, changeDefault:bool = True) -> None:
         self.lcd1.setVisible(True)
+        self.timerCard.setVisible(True)
         self.lcdFrame.setVisible(True)
         self.readingsAction.setChecked(True)
         if changeDefault:

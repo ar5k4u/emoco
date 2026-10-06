@@ -12189,6 +12189,42 @@ When Keyboard Shortcuts are OFF adds a custom event</source>
 </context><context>
     <name>Label</name>
     <message>
+        <source>Standby</source>
+        <translation>대기</translation>
+    </message>
+    <message>
+        <source>Prediction</source>
+        <translation>예측</translation>
+    </message>
+    <message>
+        <source>BT vs background</source>
+        <translation>배경 대비 BT</translation>
+    </message>
+    <message>
+        <source>Charge</source>
+        <translation>투입</translation>
+    </message>
+    <message>
+        <source>Recording</source>
+        <translation>기록 중</translation>
+    </message>
+    <message>
+        <source>Monitoring</source>
+        <translation>모니터링 중</translation>
+    </message>
+    <message>
+        <source>Sampling</source>
+        <translation>샘플링</translation>
+    </message>
+    <message>
+        <source>Development</source>
+        <translation>디벨롭</translation>
+    </message>
+    <message>
+        <source>ongoing</source>
+        <translation>진행 중</translation>
+    </message>
+    <message>
         <location filename="../artisanlib/events.py" line="3785" />
         <location filename="../artisanlib/events.py" line="1009" />
         <location filename="../artisanlib/events.py" line="743" />
@@ -13815,14 +13851,14 @@ When Keyboard Shortcuts are OFF adds a custom event</source>
         <location filename="../artisanlib/statistics.py" line="226" />
         <location filename="../artisanlib/phases.py" line="45" />
         <source>Drying</source>
-        <translation type="unfinished">건조구간</translation>
+        <translation>건조</translation>
     </message>
     <message>
         <location filename="../artisanlib/transposer.py" line="1028" />
         <location filename="../artisanlib/statistics.py" line="225" />
         <location filename="../artisanlib/phases.py" line="46" />
         <source>Maillard</source>
-        <translation type="unfinished">마이야반응</translation>
+        <translation>마이야르</translation>
     </message>
     <message>
         <location filename="../artisanlib/transposer.py" line="1029" />
