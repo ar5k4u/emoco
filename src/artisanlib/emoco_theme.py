@@ -521,6 +521,9 @@ def _apply_lcd_styles(aw:'ApplicationWindow') -> None:
         card.setStyleSheet(lcd_card_style())
     aw.phaseBar.refreshStyle()
     aw.timerCard.refreshStyle()
+    aw.infoCard.refreshStyle()
+    aw.headerInfoText = ''
+    aw.updateHeaderInfo()
     for frame in (aw.TPlcdFrame, aw.TP2DRYframe, aw.DRYlcdFrame, aw.DRY2FCsframe, aw.FCslcdFrame, aw.AUClcdFrame):
         frame.setStyleSheet(phases_lcd_style())
     aw.eventlabel.setStyleSheet(f"background-color:{t['surface2']}; color:{t['text']};")

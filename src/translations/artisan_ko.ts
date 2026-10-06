@@ -12189,6 +12189,18 @@ When Keyboard Shortcuts are OFF adds a custom event</source>
 </context><context>
     <name>Label</name>
     <message>
+        <source>Prediction</source>
+        <translation>예측</translation>
+    </message>
+    <message>
+        <source>BT vs background</source>
+        <translation>배경 대비 BT</translation>
+    </message>
+    <message>
+        <source>Charge</source>
+        <translation>투입</translation>
+    </message>
+    <message>
         <source>Recording</source>
         <translation>기록 중</translation>
     </message>

@@ -304,3 +304,78 @@ class TimerCard(QFrame): # pyrefly:ignore[invalid-inheritance] # pyright: ignore
             self.phase_label.setVisible(phase != '')
         except Exception as e: # pylint: disable=broad-except
             _log.exception(e)
+
+
+class InfoCard(QFrame): # pyrefly:ignore[invalid-inheritance] # pyright: ignore [reportGeneralTypeIssues]
+    """A card in the readings column holding the phase prediction LCDs (TP, DRY, FCs), the AUC LCD and the BT
+    difference to the background profile. It is visible while any of them is."""
+
+    def __init__(self, phases_lcds:QWidget, auc_lcd:QWidget, parent=None) -> None: # type: ignore[no-untyped-def]
+        super().__init__(parent) # pyrefly: ignore
+        self.setObjectName('infoCard')
+        self.phases_lcds = phases_lcds
+        self.auc_lcd = auc_lcd
+        self.title_label = QLabel(QApplication.translate('Label', 'Prediction'))
+        self.title_label.setObjectName('infoTitle')
+        self.delta_label = QLabel()
+        self.delta_label.setObjectName('infoDelta')
+        self.delta_label.setVisible(False)
+        layout = QVBoxLayout()
+        layout.setContentsMargins(10, 6, 10, 8)
+        layout.setSpacing(4)
+        layout.addWidget(self.title_label)
+        layout.addWidget(phases_lcds)
+        layout.addWidget(auc_lcd)
+        layout.addWidget(self.delta_label)
+        self.setLayout(layout)
+        self._last_delta:str|None = None
+        self.setVisible(False)
+        self.refreshStyle()
+
+    def refreshStyle(self) -> None:
+        t = emoco_theme.tokens()
+        self.setStyleSheet(
+            f"QFrame#infoCard {{ background-color: {t['surface']}; border: 1px solid {t['border']}; border-radius: 10px; }}"
+            f" QLabel#infoTitle {{ color: {t['text']}; font-weight: bold; }}"
+            f" QLabel#infoDelta {{ color: {t['muted']}; }}")
+        self.update()
+
+    # BT difference to the (time aligned) background profile at the latest sample, or None
+    @staticmethod
+    def background_delta(qmc:'tgraphcanvas') -> float|None:
+        try:
+            if not qmc.background or qmc.backgroundprofile is None or not qmc.flagon:
+                return None
+            timex, temp, timeB, tempB = qmc.timex, qmc.temp2, qmc.timeB, qmc.temp2B
+            if len(timex) == 0 or len(timeB) < 2 or len(tempB) != len(timeB):
+                return None
+            t = timex[-1]
+            v = temp[-1] if len(temp) == len(timex) else None
+            if v is None or v == -1 or t < timeB[0] or t > timeB[-1]:
+                return None
+            import bisect # pylint: disable=import-outside-toplevel
+            i = bisect.bisect_left(timeB, t)
+            i = max(1, min(i, len(timeB) - 1))
+            t0, t1 = timeB[i - 1], timeB[i]
+            b0, b1 = tempB[i - 1], tempB[i]
+            if b0 is None or b1 is None or b0 == -1 or b1 == -1:
+                return None
+            b = b0 if t1 == t0 else b0 + (b1 - b0) * (t - t0) / (t1 - t0)
+            return float(v - b)
+        except Exception as e: # pylint: disable=broad-except
+            _log.exception(e)
+            return None
+
+    def refresh(self, qmc:'tgraphcanvas') -> None:
+        try:
+            delta = self.background_delta(qmc)
+            text = '' if delta is None else QApplication.translate('Label', 'BT vs background') + f'  {delta:+.1f}\u00b0'
+            if text != self._last_delta:
+                self._last_delta = text
+                self.delta_label.setText(text)
+                self.delta_label.setVisible(text != '')
+            visible = self.phases_lcds.isVisibleTo(self) or self.auc_lcd.isVisibleTo(self) or text != ''
+            if visible != self.isVisible():
+                self.setVisible(visible)
+        except Exception as e: # pylint: disable=broad-except
+            _log.exception(e)

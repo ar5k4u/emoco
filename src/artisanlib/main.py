@@ -54,6 +54,7 @@ signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 import zlib
 import logging.config
+import html
 from yaml import safe_load as yaml_load
 from collections.abc import Callable
 from typing import Final, cast, Any, Literal, TYPE_CHECKING
@@ -700,7 +701,7 @@ from artisanlib.wsport import wsport
 from artisanlib.modbusport import modbusport
 from artisanlib.event_button_style import artisan_event_button_style
 from artisanlib import emoco_theme
-from artisanlib.emoco_widgets import PhaseBar, TimerCard
+from artisanlib.emoco_widgets import PhaseBar, TimerCard, InfoCard
 from artisanlib.simulator import Simulator
 from artisanlib.dialogs import HelpDlg, ArtisanInputDialog, ArtisanComboBoxDialog, ArtisanPortsDialog, ArtisanSliderLCDinputDlg
 from artisanlib.large_lcds import (LargeMainLCDs, LargeDeltaLCDs, LargePIDLCDs, LargeExtraLCDs, LargePhasesLCDs, LargeScaleLCDs)
@@ -1489,7 +1490,7 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
         'saveStatisticsMenu', 'printAction', 'quitAction', 'cutAction', 'copyAction', 'pasteAction', 'editGraphAction', 'backgroundAction',
         'flavorAction', 'switchAction', 'switchETBTAction', 'machineMenu', 'deviceAction', 'commportAction', 'calibrateDelayAction', 'curvesAction',
         'eventsAction', 'alarmAction', 'phasesGraphAction', 'StatisticsAction', 'WindowconfigAction', 'colorsAction', 'themeMenu', 'autosaveAction',
-        'emocoThemeMenu', 'emocoThemeActions', 'event_button_style_args', 'eventButtonBaseText', 'phaseBar', 'sliderStepButtons', 'timerCard',
+        'emocoThemeMenu', 'emocoThemeActions', 'event_button_style_args', 'eventButtonBaseText', 'phaseBar', 'sliderStepButtons', 'timerCard', 'infoCard', 'headerInfoLabel', 'headerInfoText',
         'batchAction', 'temperatureConfMenu', 'FahrenheitAction', 'CelsiusAction', 'languageMenu', 'analyzeMenu', 'fitIdealautoAction',
         'analyzeMenu', 'fitIdealx2Action', 'fitIdealx3Action', 'fitIdealx0Action', 'fitBkgndAction', 'clearresultsAction', 'roastCompareAction',
         'designerAction', 'simulatorAction', 'wheeleditorAction', 'transformAction', 'temperatureMenu', 'ConvertToFahrenheitAction',
@@ -3873,7 +3874,7 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
 
         self.phasesLCDs: QFrame = QFrame()
         self.phasesLCDs.setContentsMargins(0, 0, 0, 0)
-        phasesLCDlayout = QHBoxLayout()
+        phasesLCDlayout = QVBoxLayout()
         phasesLCDlayout.addWidget(self.TPlcdFrame)
         phasesLCDlayout.addWidget(self.TP2DRYframe)
         phasesLCDlayout.addWidget(self.DRYlcdFrame)
@@ -3885,10 +3886,21 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
         self.phasesLCDs.hide()
         self.phasesLCDs.setToolTip(QApplication.translate('Tooltip','Phase LCDs: right-click to cycle through TIME, PERCENTAGE and TEMP MODE'))
 
+        # phase predictions, AUC and background difference as a card below the readings (before the stretch)
+        self.infoCard:InfoCard = InfoCard(self.phasesLCDs, self.AUCLCD)
+        LCDlayout.insertWidget(2, self.infoCard)
+
+        # header: roast title, batch and charge weight next to the toolbar
+        self.headerInfoLabel:QLabel = QLabel()
+        self.headerInfoLabel.setObjectName('headerInfo')
+        self.headerInfoLabel.setTextFormat(Qt.TextFormat.RichText)
+        self.headerInfoLabel.setVisible(False)
+        self.headerInfoText:str = ''
+
         #level 1
+        self.level1layout.addSpacing(12)
+        self.level1layout.addWidget(self.headerInfoLabel)
         self.level1layout.addStretch()
-        self.level1layout.addWidget(self.phasesLCDs)
-        self.level1layout.addWidget(self.AUCLCD)
         self.level1layout.addSpacing(20)
         self.level1layout.addWidget(self.buttonRESET)
         self.level1layout.addSpacing(10)
@@ -11536,10 +11548,36 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
         self.lowerbuttondialog.setVisible(True)
 
     # update the visibility of the extra event buttons based on the users preference for the current state
+    # header line next to the toolbar: roast title, batch number and charge weight
+    def updateHeaderInfo(self) -> None:
+        try:
+            title = self.qmc.title if self.qmc.title != QApplication.translate('Scope Title', 'Roaster Scope') else ''
+            parts:list[str] = []
+            if self.qmc.roastbatchnr != 0:
+                parts.append(QApplication.translate('Label', 'Batch') + f' {self.qmc.roastbatchprefix}{self.qmc.roastbatchnr}')
+            if self.qmc.weight[0] > 0:
+                w = self.qmc.weight[0]
+                unit = self.qmc.weight[2]
+                parts.append(QApplication.translate('Label', 'Charge') + (f' {w:,.0f} {unit}' if unit == 'g' else f' {w:g} {unit}'))
+            muted = emoco_theme.token('muted')
+            text = ''
+            if title:
+                text = f'<b>{html.escape(title)}</b>'
+            if parts:
+                text += ('&nbsp;&nbsp;' if text else '') + f'<span style="color:{muted}">' + html.escape(' \u00b7 '.join(parts)) + '</span>'
+            if text != self.headerInfoText:
+                self.headerInfoText = text
+                self.headerInfoLabel.setText(text)
+                self.headerInfoLabel.setVisible(text != '')
+        except Exception as e: # pylint: disable=broad-except
+            _log.exception(e)
+
     # shows the recorded time (from CHARGE) and BT of the main events as a second line on the event buttons
     def updateEventButtonLabels(self) -> None:
         self.phaseBar.refresh(self.qmc)
         self.timerCard.refresh(self.qmc, self.phaseBar)
+        self.infoCard.refresh(self.qmc)
+        self.updateHeaderInfo()
         try:
             buttons = [self.buttonCHARGE, self.buttonDRY, self.buttonFCs, self.buttonFCe,
                        self.buttonSCs, self.buttonSCe, self.buttonDROP, self.buttonCOOL]
