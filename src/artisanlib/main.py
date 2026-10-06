@@ -729,6 +729,7 @@ import plus.notifications
 import plus.blend
 import plus.stock
 import plus.schedule
+import plus.profile
 
 
 
@@ -4867,7 +4868,7 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
         message = MIMEMultipart()
         if self.plus_email is not None:
             message['From'] = self.plus_email
-        message['To'] = f"{'logfile'}@{'artisan.plus'}"
+        message['To'] = f"{'logfile'}@{'emoco.kr'}"
         message['Subject'] = 'artisan log'
         message['X-Unsent'] = '1'
         # message["X-Uniform-Type-Identifier"] = "com.apple.mail-draft"
@@ -5230,13 +5231,13 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
                     if self.editgraphdialog is False:
                         # syncing from server in progress
                         plus_icon = 'plus-dirty'
-                        tooltip = QApplication.translate('Tooltip', 'Syncing with artisan.plus')
+                        tooltip = QApplication.translate('Tooltip', 'Syncing with {}').format(plus.config.app_name)
                     elif plus.controller.is_synced():
                         plus_icon = 'plus-connected'
-                        tooltip = QApplication.translate('Tooltip', 'Disconnect artisan.plus')
+                        tooltip = QApplication.translate('Tooltip', 'Disconnect {}').format(plus.config.app_name)
                     else:
                         plus_icon = 'plus-unsynced'
-                        tooltip = QApplication.translate('Tooltip', 'Upload to artisan.plus')
+                        tooltip = QApplication.translate('Tooltip', 'Upload to {}').format(plus.config.app_name)
                     if self.plus_subscription == 'HOME':
                         subscription_icon = 'plus-home'
                         if self.plus_paidUntil is not None:
@@ -5267,10 +5268,10 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
                                     subscription_icon = 'plus-pro-low'
                 else:
                     plus_icon = 'plus-on'
-                    tooltip = QApplication.translate('Tooltip', 'Disconnect artisan.plus')
+                    tooltip = QApplication.translate('Tooltip', 'Disconnect {}').format(plus.config.app_name)
             else:
                 plus_icon = 'plus-off'
-                tooltip = QApplication.translate('Tooltip', 'Connect artisan.plus')
+                tooltip = QApplication.translate('Tooltip', 'Connect {}').format(plus.config.app_name)
             if svgsupport:
                 plus_icon += '.svg'
             else:
@@ -13026,6 +13027,7 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
                             pf['plus_sync_record_hash'] = hash_encoded
                     self.plusAddPath(cast(dict[str, Any], pf), filename_path)
                     serialize(filename_path, cast(dict[str, Any], pf))
+                    plus.profile.queue_profile_upload(filename_path, pf.get('roastUUID'))
                     self.sendmessage(QApplication.translate('Message','Profile {0} saved in: {1}').format(filename,self.qmc.autosavepath))
                     self.setCurrentFile(filename_path,self.qmc.autosaveaddtorecentfilesflag)
                     self.qmc.fileCleanSignal.emit()
@@ -17024,6 +17026,8 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
                     # we save the file and set the filename
                     self.plusAddPath(cast(dict[str,Any], pf), filename)
                     serialize(filename, cast(dict[str,Any], pf))
+                    if not copy:
+                        plus.profile.queue_profile_upload(filename, pf.get('roastUUID'))
                     self.sendmessage(QApplication.translate('Message','Profile saved'))
                     _log.info('profile saved: %s', filename)
                     if not copy:
@@ -19298,6 +19302,8 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
                 if self.fullscreenAction is not None and not (platform.system() == 'Darwin' and self.qmc.locale_str == 'en'):
                     self.fullscreenAction.setChecked(True)
 
+            if filename is None:
+                plus.controller.forget_artisan_plus_account(self)
             if filename is None and self.plus_account is not None:
                 try:
                     plus.controller.start(self)

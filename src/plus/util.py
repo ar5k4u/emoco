@@ -409,23 +409,23 @@ def plusLink() -> str:
 
 def storeLink(plus_store:str) -> str:
 #    return f'{config.web_base_url}/{getLanguage()}/stores;id={plus_store}'
-    return f'{config.web_base_url}/stores;id={plus_store}'
+    return f'{config.web_base_url}/beans?location={plus_store}'
 
 def coffeeLink(plus_coffee:str) -> str:
 #    return f'{config.web_base_url}/{getLanguage()}/coffees;id={plus_coffee}'
-    return f'{config.web_base_url}/coffees;id={plus_coffee}'
+    return f'{config.web_base_url}/beans/{plus_coffee}'
 
 def blendLink(plus_blend:str) -> str:
 #    return f'{config.web_base_url}/{getLanguage()}/blends;id={plus_blend}'
-    return f'{config.web_base_url}/blends;id={plus_blend}'
+    return f'{config.web_base_url}/beans?blend={plus_blend}'
 
 def roastLink(plus_roast:str) -> str:
 #    return f'{config.web_base_url}/{getLanguage()}/roasts;id={plus_roast}'
-    return f'{config.web_base_url}/roasts;id={plus_roast}'
+    return f'{config.web_base_url}/roasts/{plus_roast}'
 
 def remindersLink() -> str:
 #    return f'{config.web_base_url}/{getLanguage()}/reminders'
-    return f'{config.web_base_url}/reminders'
+    return f'{config.web_base_url}/schedule'
 
 def schedulerLink() -> str:
 #    return f'{config.web_base_url}/{getLanguage()}/schedule'

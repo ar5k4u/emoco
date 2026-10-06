@@ -22,13 +22,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 from typing import Final, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from artisanlib.main import ApplicationWindow # pylint: disable=unused-import
 
 # Constants
-app_name: Final[str] = 'artisan.plus'
+app_name: Final[str] = 'Emoco Cloud'
 profile_ext: Final[str] = 'alog'
 uuid_tag: Final[str] = 'roastUUID' # as used in .alog profiles, send as 'roast_id' as part of the sync record to the server
 schedule_uuid_tag: Final[str] = 'scheduleID' # send as 's_item_id' as part of the sync record to the server
@@ -41,13 +42,18 @@ schedule_date_tag: Final[str] = 'scheduleDate' # send as 's_item_date' as part o
 #web_base_url         = 'https://localhost:8088'
 
 # # CLOUD SETUP
-api_base_url: Final[str] = 'https://artisan.plus/api/v1'
-web_base_url: Final[str] = 'https://artisan.plus'
+# The server can be redirected for development and testing by setting the environment variable
+# EMOCO_CLOUD_URL (e.g. 'http://localhost:8000'); EMOCO_CLOUD_INSECURE=1 disables the SSL verification
+_cloud_base: Final[str] = os.environ.get('EMOCO_CLOUD_URL', 'https://cloud.emoco.kr').rstrip('/')
+api_base_url: Final[str] = _cloud_base + '/api/v1'
+web_base_url: Final[str] = _cloud_base
 
-shop_base_url: Final[str] = 'https://buy.artisan.plus/'
+shop_base_url: Final[str] = web_base_url + '/'
 
 register_url: Final[str] = web_base_url + '/register'
-reset_passwd_url: Final[str] = web_base_url + '/resetPassword'
+reset_passwd_url: Final[str] = web_base_url + '/reset-password'
+signup_ticket_url: Final[str] = api_base_url + '/signup/ticket'
+profile_upload_max_bytes: Final[int] = 5 * 1024 * 1024
 auth_url: Final[str] = api_base_url + '/accounts/users/authenticate'
 stock_url: Final[str] = api_base_url + '/acoffees'
 roast_url: Final[str] = api_base_url + '/aroast'
@@ -57,7 +63,7 @@ notifications_url: Final[str] = api_base_url + '/notifications'
 # Connection configurations
 
 #verify_ssl: Final[bool] = False
-verify_ssl: Final[bool] = True
+verify_ssl: Final[bool] = os.environ.get('EMOCO_CLOUD_INSECURE', '') != '1'
 connect_timeout: Final[int] = 6  # in seconds
 read_timeout: Final[int] = 12  # in seconds
 read_timeout_max: Final[int] = 30  # in seconds
