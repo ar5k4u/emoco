@@ -306,6 +306,11 @@ def slider_style() -> str:
         style = style.replace(old, new)
     return style
 
+# returns the style of the reading cards (frames holding a label and an LCD)
+def lcd_card_style() -> str:
+    t = tokens()
+    return f"QFrame#lcdCard {{ background-color: {t['surface']}; border: 1px solid {t['border']}; border-radius: 10px; }}"
+
 # returns the style of the phases and AUC LCDs
 def phases_lcd_style() -> str:
     t = tokens()
@@ -483,6 +488,8 @@ def _apply_button_styles(aw:'ApplicationWindow') -> None:
 def _apply_lcd_styles(aw:'ApplicationWindow') -> None:
     t = tokens()
     aw.setLCDsColors()
+    for card in [aw.LCD2frame, aw.LCD3frame, aw.LCD4frame, aw.LCD5frame, aw.LCD6frame, aw.LCD7frame] + list(aw.extraLCDframe1) + list(aw.extraLCDframe2):
+        card.setStyleSheet(lcd_card_style())
     for frame in (aw.TPlcdFrame, aw.TP2DRYframe, aw.DRYlcdFrame, aw.DRY2FCsframe, aw.FCslcdFrame, aw.AUClcdFrame):
         frame.setStyleSheet(phases_lcd_style())
     aw.eventlabel.setStyleSheet(f"background-color:{t['surface2']}; color:{t['text']};")

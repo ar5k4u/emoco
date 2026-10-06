@@ -115,7 +115,7 @@ from PyQt6.QtWidgets import (QApplication, QWidget, QMessageBox, QLabel, QMainWi
                          QLCDNumber, QSpinBox, QComboBox,
                          QSlider,
                          QColorDialog, QFrame, QScrollArea, QProgressDialog,
-                         QStyleFactory, QMenuBar, QMenu, QLayout, QDockWidget)
+                         QStyleFactory, QMenuBar, QMenu, QLayout, QGridLayout, QDockWidget)
 from PyQt6.QtGui import (QScreen, QPageLayout, QAction, QImageReader, QWindow,
                             QKeySequence, QShortcut,
                             QPixmap,QColor,QDesktopServices,QIcon,
@@ -3736,63 +3736,51 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
         self.EventsGroupLayout.setLayout(EventsLayout)
         self.EventsGroupLayout.setVisible(False)
 
+        # the readings are shown as cards in a two column grid: ET | BT, deltaET | deltaBT, SV | PID, extra device 1 | extra device 2
+        LCDgrid = QGridLayout()
+        LCDgrid.setSpacing(6)
+        LCDgrid.setContentsMargins(0,0,5,0)
+        LCDgrid.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
         LCDlayout = QVBoxLayout()
         LCDlayout.setSpacing(0)
-        LCDlayout.setContentsMargins(0,0,5,0)
-        LCDlayout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
+        LCDlayout.setContentsMargins(0,0,0,0)
+        LCDlayout.addLayout(LCDgrid)
+        LCDlayout.addStretch()
 
         #place control buttons + LCDs inside vertical button layout manager
         self.LCD2frame:ClickableLCDFrame = ClickableLCDFrame()
         self.LCD2frame.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.LCD2frame.customContextMenuRequested.connect(self.setTareET)
         self.LCD2frame.left_clicked.connect(self.toggleETlcdCurve)
-        w = self.makeLCDbox(self.label2,self.lcd2,self.LCD2frame)
-        LCDlayout.addWidget(w)
-        LCDlayout.setAlignment(w,Qt.AlignmentFlag.AlignRight)
+        LCDgrid.addWidget(self.makeLCDbox(self.label2,self.lcd2,self.LCD2frame),0,0)
 
         self.LCD3frame:ClickableLCDFrame = ClickableLCDFrame()
         self.LCD3frame.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.LCD3frame.customContextMenuRequested.connect(self.setTareBT)
         self.LCD3frame.left_clicked.connect(self.toggleBTlcdCurve)
-        w = self.makeLCDbox(self.label3,self.lcd3,self.LCD3frame)
-        LCDlayout.addWidget(w)
-        LCDlayout.setAlignment(w,Qt.AlignmentFlag.AlignRight)
+        LCDgrid.addWidget(self.makeLCDbox(self.label3,self.lcd3,self.LCD3frame),0,1)
 
         self.LCD4frame:ClickableLCDFrame = ClickableLCDFrame()
         self.LCD4frame.left_clicked.connect(self.toggleDeltaETlcdCurve)
-        w = self.makeLCDbox(self.label4,self.lcd4,self.LCD4frame)
-        LCDlayout.addWidget(w)
-        LCDlayout.setAlignment(w,Qt.AlignmentFlag.AlignRight)
+        LCDgrid.addWidget(self.makeLCDbox(self.label4,self.lcd4,self.LCD4frame),1,0)
         self.LCD4frame.setVisible(False) # by default this one is not visible
 
         self.LCD5frame:ClickableLCDFrame = ClickableLCDFrame()
         self.LCD5frame.left_clicked.connect(self.toggleDeltaBTlcdCurve)
-        w = self.makeLCDbox(self.label5,self.lcd5,self.LCD5frame)
-        LCDlayout.addWidget(w)
-        LCDlayout.setAlignment(w,Qt.AlignmentFlag.AlignRight)
+        LCDgrid.addWidget(self.makeLCDbox(self.label5,self.lcd5,self.LCD5frame),1,1)
 
         self.LCD6frame:QFrame = QFrame()
-        w = self.makeLCDbox(self.label6,self.lcd6,self.LCD6frame)
-        LCDlayout.addWidget(w)
-        LCDlayout.setAlignment(w,Qt.AlignmentFlag.AlignRight)
+        LCDgrid.addWidget(self.makeLCDbox(self.label6,self.lcd6,self.LCD6frame),2,0)
         self.LCD6frame.setVisible(False)
 
         self.LCD7frame:QFrame = QFrame()
-        w = self.makeLCDbox(self.label7,self.lcd7,self.LCD7frame)
-        LCDlayout.addWidget(w)
-        LCDlayout.setAlignment(w,Qt.AlignmentFlag.AlignRight)
+        LCDgrid.addWidget(self.makeLCDbox(self.label7,self.lcd7,self.LCD7frame),2,1)
         self.LCD7frame.setVisible(False)
 
         #add extra LCDs
         for i in range(self.nLCDS):
-            w = self.makeLCDbox(self.extraLCDlabel1[i],self.extraLCD1[i],self.extraLCDframe1[i])
-            LCDlayout.addWidget(w)
-            LCDlayout.setAlignment(w,Qt.AlignmentFlag.AlignRight)
-            w = self.makeLCDbox(self.extraLCDlabel2[i],self.extraLCD2[i],self.extraLCDframe2[i])
-            LCDlayout.addWidget(w)
-            LCDlayout.setAlignment(w,Qt.AlignmentFlag.AlignRight)
-        LCDlayout.addStretch()
-        del w
+            LCDgrid.addWidget(self.makeLCDbox(self.extraLCDlabel1[i],self.extraLCD1[i],self.extraLCDframe1[i]),3+i,0)
+            LCDgrid.addWidget(self.makeLCDbox(self.extraLCDlabel2[i],self.extraLCD2[i],self.extraLCDframe2[i]),3+i,1)
 
         #PID Buttons
         pidbuttonLayout.addWidget(self.buttonSVp20)
@@ -8182,17 +8170,21 @@ class ApplicationWindow(QMainWindow): # pyrefly:ignore[invalid-inheritance] # py
 
     @staticmethod
     def makeLCDbox(label:QLabel, lcd:MyQLCDNumber, lcdframe:QFrame) -> QFrame:
+        # a reading card: the label in the top left corner, the LCD below aligned right
         LCDbox = QVBoxLayout()
-        LCDbox.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
-        LCDbox.setSpacing(0)
+        LCDbox.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
+        LCDbox.setSpacing(2)
+        label.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignLeft)
         LCDbox.addWidget(label)
         LCDhBox = QHBoxLayout()
         LCDhBox.addStretch()
         LCDhBox.addWidget(lcd)
         LCDbox.addLayout(LCDhBox)
         LCDhBox.setContentsMargins(0, 0, 0, 0)
-        LCDbox.setContentsMargins(0, 0, 0, 0)
-        lcdframe.setContentsMargins(0, 10, 0, 3)
+        LCDbox.setContentsMargins(10, 6, 10, 8)
+        lcdframe.setObjectName('lcdCard')
+        lcdframe.setContentsMargins(0, 0, 0, 0)
+        lcdframe.setStyleSheet(emoco_theme.lcd_card_style())
         lcdframe.setLayout(LCDbox)
         return lcdframe
 
