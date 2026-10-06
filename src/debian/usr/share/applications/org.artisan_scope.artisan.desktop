@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.1
+Type=Application
+Name=Artisan
+GenericName=Visual Scope for Coffee Roasters
+Comment=Visualizes the coffee roasting process
+Exec=artisan %U
+TryExec=artisan
+Icon=artisan
+Terminal=false
+StartupNotify=false
+Categories=Utility;
+MimeType=x-scheme-handler/artisan;application/x-artisan-alog;application/x-artisan-alrm;application/x-artisan-apal;application/x-artisan-aset;application/x-artisan-wg;application/x-artisan-athm;
